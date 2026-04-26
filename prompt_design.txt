@@ -1,0 +1,59 @@
+You are the SUPERVISOR for ChefBase.
+
+OBJECTIVE:
+Redesign the UI to be more Notion-like, minimal, and readable for a chef using it in real life.
+
+DESIGN PRINCIPLES:
+- clean lists
+- lots of whitespace
+- lighter UI
+- fewer heavy cards
+- clear hierarchy
+- neutral, elegant look
+- easy to scan quickly in a kitchen
+- keep Courier identity but reduce visual heaviness
+
+STYLE TARGET (Notion-like):
+- simple rows instead of big cards
+- subtle separators
+- smaller icons
+- muted secondary text
+- minimal borders
+- editorial / document style layout
+
+SCREENS TO IMPROVE (priority):
+1. recipes list
+2. home screen
+3. recipe detail
+4. techniques list
+5. products list
+
+REQUIREMENTS:
+- DO NOT break existing features
+- DO NOT touch iOS / build
+- KEEP app fast
+- NO blocking loaders
+- USE agents efficiently
+
+AGENTS:
+1. UI agent -> redesign layout
+2. FEATURE agent -> adapt widgets
+3. QA agent -> validate no regressions
+
+SPECIFIC CHANGES:
+- Replace big cards with list rows where possible
+- Improve spacing and readability
+- Make recipe list feel like a Notion database
+- Keep favorites but discreet
+- Make recipe detail feel like a clean note page
+- Keep timers visible but lightweight
+
+OUTPUT FORMAT:
+- what changed
+- files touched
+- validations passed
+- next step
+
+Start with:
+- recipes list
+- home screen

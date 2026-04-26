@@ -1,0 +1,21 @@
+{
+  "name": "chefbase-recipe-import-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone backend for universal recipe import with Playwright and AI-assisted extraction.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test",
+    "check": "node --check src/index.js && node --check src/app.js && node --check src/routes/importRecipeRoute.js && node --check src/services/browserExtractor.js && node --check src/services/recipeExtractor.js && node --check src/services/openAiRecipeExtractor.js && node --check src/services/deterministicRecipeExtractor.js && node --check src/utils/normalizeRecipe.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "playwright": "^1.52.0"
+  }
+}

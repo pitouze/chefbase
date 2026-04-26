@@ -1,0 +1,270 @@
+{
+  "seasonal": [
+    {
+      "month": "janvier",
+      "title": "Janvier",
+      "season": "hiver",
+      "fruits": ["pomme", "poire", "kiwi", "clémentine", "orange", "citron"],
+      "vegetables": ["poireau", "carotte", "navet", "céleri-rave", "endive", "chou-fleur", "pomme de terre", "courge"],
+      "items": ["pomme", "poire", "kiwi", "clémentine", "orange", "citron", "poireau", "carotte", "navet", "céleri-rave", "endive", "chou-fleur", "pomme de terre", "courge"]
+    },
+    {
+      "month": "février",
+      "title": "Février",
+      "season": "hiver",
+      "fruits": ["pomme", "poire", "kiwi", "clémentine", "orange sanguine", "citron"],
+      "vegetables": ["poireau", "carotte", "navet", "céleri-rave", "endive", "chou vert", "betterave", "panais"],
+      "items": ["pomme", "poire", "kiwi", "clémentine", "orange sanguine", "citron", "poireau", "carotte", "navet", "céleri-rave", "endive", "chou vert", "betterave", "panais"]
+    },
+    {
+      "month": "mars",
+      "title": "Mars",
+      "season": "fin d'hiver / début de printemps",
+      "fruits": ["pomme", "poire", "kiwi", "citron", "rhubarbe"],
+      "vegetables": ["asperge", "épinard", "radis", "poireau", "carotte", "navet", "oignon nouveau", "blette"],
+      "items": ["pomme", "poire", "kiwi", "citron", "rhubarbe", "asperge", "épinard", "radis", "poireau", "carotte", "navet", "oignon nouveau", "blette"]
+    },
+    {
+      "month": "avril",
+      "title": "Avril",
+      "season": "printemps",
+      "fruits": ["fraise", "rhubarbe", "pomme", "poire", "kiwi", "citron"],
+      "vegetables": ["asperge", "épinard", "petit pois", "radis", "poireau", "carotte nouvelle", "navet nouveau", "oignon nouveau", "blette", "chou-fleur"],
+      "items": ["fraise", "rhubarbe", "pomme", "poire", "kiwi", "citron", "asperge", "épinard", "petit pois", "radis", "poireau", "carotte nouvelle", "navet nouveau", "oignon nouveau", "blette", "chou-fleur"]
+    },
+    {
+      "month": "mai",
+      "title": "Mai",
+      "season": "printemps",
+      "fruits": ["fraise", "rhubarbe", "cerise", "pomme"],
+      "vegetables": ["asperge", "artichaut", "petit pois", "fève", "radis", "épinard", "laitue", "courgette", "concombre"],
+      "items": ["fraise", "rhubarbe", "cerise", "pomme", "asperge", "artichaut", "petit pois", "fève", "radis", "épinard", "laitue", "courgette", "concombre"]
+    },
+    {
+      "month": "juin",
+      "title": "Juin",
+      "season": "fin de printemps / début d'été",
+      "fruits": ["fraise", "framboise", "cerise", "abricot", "melon", "pêche"],
+      "vegetables": ["tomate", "courgette", "aubergine", "poivron", "concombre", "haricot vert", "petit pois", "fenouil"],
+      "items": ["fraise", "framboise", "cerise", "abricot", "melon", "pêche", "tomate", "courgette", "aubergine", "poivron", "concombre", "haricot vert", "petit pois", "fenouil"]
+    },
+    {
+      "month": "juillet",
+      "title": "Juillet",
+      "season": "été",
+      "fruits": ["abricot", "pêche", "nectarine", "melon", "pastèque", "framboise", "cassis", "groseille"],
+      "vegetables": ["tomate", "courgette", "aubergine", "poivron", "concombre", "haricot vert", "maïs doux", "fenouil"],
+      "items": ["abricot", "pêche", "nectarine", "melon", "pastèque", "framboise", "cassis", "groseille", "tomate", "courgette", "aubergine", "poivron", "concombre", "haricot vert", "maïs doux", "fenouil"]
+    },
+    {
+      "month": "août",
+      "title": "Août",
+      "season": "été",
+      "fruits": ["pêche", "nectarine", "prune", "mirabelle", "melon", "pastèque", "figue", "raisin précoce"],
+      "vegetables": ["tomate", "courgette", "aubergine", "poivron", "concombre", "haricot vert", "bette", "maïs doux"],
+      "items": ["pêche", "nectarine", "prune", "mirabelle", "melon", "pastèque", "figue", "raisin précoce", "tomate", "courgette", "aubergine", "poivron", "concombre", "haricot vert", "bette", "maïs doux"]
+    },
+    {
+      "month": "septembre",
+      "title": "Septembre",
+      "season": "fin d'été / début d'automne",
+      "fruits": ["raisin", "figue", "prune", "mirabelle", "pomme", "poire", "coing"],
+      "vegetables": ["tomate", "courgette", "aubergine", "poivron", "haricot vert", "potimarron", "champignon", "betterave"],
+      "items": ["raisin", "figue", "prune", "mirabelle", "pomme", "poire", "coing", "tomate", "courgette", "aubergine", "poivron", "haricot vert", "potimarron", "champignon", "betterave"]
+    },
+    {
+      "month": "octobre",
+      "title": "Octobre",
+      "season": "automne",
+      "fruits": ["pomme", "poire", "raisin", "figue", "coing", "châtaigne", "noix"],
+      "vegetables": ["courge", "potimarron", "butternut", "champignon", "poireau", "carotte", "céleri-rave", "betterave", "chou"],
+      "items": ["pomme", "poire", "raisin", "figue", "coing", "châtaigne", "noix", "courge", "potimarron", "butternut", "champignon", "poireau", "carotte", "céleri-rave", "betterave", "chou"]
+    },
+    {
+      "month": "novembre",
+      "title": "Novembre",
+      "season": "automne / début d'hiver",
+      "fruits": ["pomme", "poire", "coing", "châtaigne", "noix", "clémentine", "kiwi"],
+      "vegetables": ["poireau", "carotte", "navet", "panais", "céleri-rave", "courge", "endive", "chou de Bruxelles", "mâche"],
+      "items": ["pomme", "poire", "coing", "châtaigne", "noix", "clémentine", "kiwi", "poireau", "carotte", "navet", "panais", "céleri-rave", "courge", "endive", "chou de Bruxelles", "mâche"]
+    },
+    {
+      "month": "décembre",
+      "title": "Décembre",
+      "season": "hiver",
+      "fruits": ["pomme", "poire", "kiwi", "clémentine", "orange", "citron", "noix"],
+      "vegetables": ["poireau", "carotte", "navet", "panais", "céleri-rave", "endive", "chou rouge", "chou-fleur", "pomme de terre"],
+      "items": ["pomme", "poire", "kiwi", "clémentine", "orange", "citron", "noix", "poireau", "carotte", "navet", "panais", "céleri-rave", "endive", "chou rouge", "chou-fleur", "pomme de terre"]
+    }
+  ],
+  "details": [
+    {
+      "name": "Pomme de terre chair ferme",
+      "category": "légume",
+      "best_for": ["gratin", "rôtie", "vapeur", "salade"],
+      "notes": "Tient bien à la cuisson. Exemples utiles : Charlotte, Amandine, Ratte, Roseval."
+    },
+    {
+      "name": "Pomme de terre farineuse",
+      "category": "légume",
+      "best_for": ["purée", "gnocchi", "potage", "frites"],
+      "notes": "Plus riche en amidon. Bintje et Agria donnent une texture sèche, légère et facile à écraser."
+    },
+    {
+      "name": "Pomme",
+      "category": "fruit",
+      "best_for": ["compote", "tarte", "rôtie", "crue"],
+      "notes": "Golden et Chantecler compotent bien. Reine des reinettes, Boskoop et Canada tiennent mieux en tarte."
+    },
+    {
+      "name": "Poire",
+      "category": "fruit",
+      "best_for": ["pochée", "tarte", "rôtie", "crue"],
+      "notes": "Conférence et Comice sont polyvalentes. Williams est très parfumée mais plus fragile à maturité."
+    },
+    {
+      "name": "Tomate",
+      "category": "fruit/légume",
+      "best_for": ["salade", "sauce", "rôtie", "farcie"],
+      "notes": "Roma et San Marzano sont charnues pour sauce. Coeur de boeuf et anciennes sont souvent meilleures crues."
+    },
+    {
+      "name": "Courge",
+      "category": "légume",
+      "best_for": ["purée", "rôtie", "potage", "gratin"],
+      "notes": "Potimarron peut garder sa peau. Butternut est douce et lisse. Courge spaghetti se défait en filaments."
+    },
+    {
+      "name": "Carotte",
+      "category": "légume",
+      "best_for": ["glacée", "rôtie", "purée", "pickles"],
+      "notes": "Les carottes fanes sont tendres et rapides à cuire. Les carottes de conservation supportent mieux les cuissons longues."
+    },
+    {
+      "name": "Oignon",
+      "category": "légume",
+      "best_for": ["fondue", "confit", "base aromatique", "pickles"],
+      "notes": "Jaune pour cuisson longue, rouge pour cru ou pickles, blanc ou nouveau pour usages printaniers plus doux."
+    },
+    {
+      "name": "Asperge",
+      "category": "légume",
+      "best_for": ["vapeur", "grillée", "risotto", "velouté"],
+      "notes": "Blanche plus douce et délicate, verte plus herbacée. Les grosses tiges se pèlent plus facilement."
+    },
+    {
+      "name": "Fraise",
+      "category": "fruit",
+      "best_for": ["crue", "tarte", "coulis", "confiture"],
+      "notes": "Gariguette est acidulée et précoce. Mara des bois est très parfumée. Charlotte est sucrée et régulière."
+    },
+    {
+      "name": "Rhubarbe",
+      "category": "fruit",
+      "best_for": ["compote", "tarte", "confiture", "sirop"],
+      "notes": "Toujours cuire les tiges, jamais les feuilles. Laisser dégorger avec du sucre réduit l'acidité."
+    },
+    {
+      "name": "Petit pois",
+      "category": "légume",
+      "best_for": ["à l'anglaise", "jardinière", "purée", "risotto"],
+      "notes": "Meilleur très frais. Les pois gourmands se mangent entiers, les petits pois classiques se dérobent."
+    },
+    {
+      "name": "Artichaut",
+      "category": "légume",
+      "best_for": ["vapeur", "barigoule", "salade", "poêlé"],
+      "notes": "Camus est gros et charnu. Violet de Provence est plus petit, souvent meilleur poêlé ou cru finement taillé."
+    },
+    {
+      "name": "Courgette",
+      "category": "légume",
+      "best_for": ["poêlée", "grillée", "farcies", "ratatouille"],
+      "notes": "Les petites courgettes sont plus fermes et moins aqueuses. Les fleurs se farcissent ou se font en beignets."
+    },
+    {
+      "name": "Aubergine",
+      "category": "légume",
+      "best_for": ["grillée", "caviar", "ratatouille", "mijotée"],
+      "notes": "Doit être brillante, lourde et ferme. Les variétés longues cuisent vite, les rondes sont pratiques à farcir."
+    },
+    {
+      "name": "Poivron",
+      "category": "légume",
+      "best_for": ["grillé", "confit", "farci", "salade"],
+      "notes": "Vert plus végétal et amer, rouge plus doux, jaune ou orange souvent très sucrés."
+    },
+    {
+      "name": "Haricot vert",
+      "category": "légume",
+      "best_for": ["vapeur", "salade", "poêlé", "garniture"],
+      "notes": "Extra-fin pour cuisson courte et texture délicate. Haricot beurre plus doux, avec une peau jaune tendre."
+    },
+    {
+      "name": "Melon",
+      "category": "fruit",
+      "best_for": ["cru", "salade", "sorbet", "entrée"],
+      "notes": "Charentais très parfumé en pleine saison. Choisir lourd, parfumé, avec pédoncule légèrement fendu."
+    },
+    {
+      "name": "Abricot",
+      "category": "fruit",
+      "best_for": ["cru", "tarte", "compote", "rôti"],
+      "notes": "Bergeron tient bien en cuisson. Rouge du Roussillon est très aromatique et intéressant en dessert simple."
+    },
+    {
+      "name": "Pêche et nectarine",
+      "category": "fruit",
+      "best_for": ["crue", "pochée", "grillée", "tarte"],
+      "notes": "Chair jaune plus parfumée et ferme, chair blanche plus délicate. Nectarine a une peau lisse et se grille bien."
+    },
+    {
+      "name": "Prune",
+      "category": "fruit",
+      "best_for": ["tarte", "compote", "confiture", "rôtie"],
+      "notes": "Mirabelle très sucrée, quetsche plus acidulée et bonne en tarte. Reine-claude est excellente crue."
+    },
+    {
+      "name": "Raisin",
+      "category": "fruit",
+      "best_for": ["cru", "fromage", "rôti", "jus"],
+      "notes": "Chasselas est fin et doux. Muscat est plus aromatique. Laver au dernier moment pour garder la tenue."
+    },
+    {
+      "name": "Champignon de Paris",
+      "category": "légume",
+      "best_for": ["poêlé", "farce", "sauce", "salade"],
+      "notes": "Blanc plus doux, brun plus ferme et goûteux. Éviter de les tremper : brosser ou essuyer suffit souvent."
+    },
+    {
+      "name": "Endive",
+      "category": "légume",
+      "best_for": ["braisée", "gratin", "salade", "velouté"],
+      "notes": "Retirer le cône dur à la base limite l'amertume. Très bonne crue avec noix, pomme ou agrumes."
+    },
+    {
+      "name": "Chou",
+      "category": "légume",
+      "best_for": ["braisé", "soupe", "fermentation", "farci"],
+      "notes": "Vert pour soupes et farcis, rouge pour cru ou braisé, kale pour poêlée rapide, frisé pour potée."
+    },
+    {
+      "name": "Betterave",
+      "category": "légume",
+      "best_for": ["rôtie", "salade", "pickles", "purée"],
+      "notes": "Crue râpée pour croquant, cuite pour douceur. Chioggia est décorative mais perd ses anneaux à la cuisson."
+    },
+    {
+      "name": "Céleri-rave",
+      "category": "légume",
+      "best_for": ["rémoulade", "purée", "velouté", "rôti"],
+      "notes": "S'oxyde vite une fois taillé. Associer citron, moutarde, pomme ou noisette pour équilibrer son goût."
+    },
+    {
+      "name": "Poireau",
+      "category": "légume",
+      "best_for": ["fondue", "soupe", "vinaigrette", "gratin"],
+      "notes": "Le blanc est plus tendre, le vert parfume bouillons et soupes. Bien laver entre les feuilles."
+    }
+  ]
+}

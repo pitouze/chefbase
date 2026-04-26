@@ -1,0 +1,33 @@
+name: chefbase_app
+description: A new Flutter project.
+
+publish_to: 'none'
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  shared_preferences: ^2.2.2
+  path_provider: ^2.1.5
+  file_selector: ^1.0.3
+  image_picker: ^1.1.2
+  flutter_local_notifications: ^21.0.0
+  timezone: ^0.11.0
+  flutter_timezone: ^5.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/data/sous_vide.json
+    - assets/data/products_data.json
+    - assets/sounds/alert.wav
+    - assets/sounds/alarm.wav
+    - assets/sounds/bell.wav
