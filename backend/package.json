@@ -6,7 +6,7 @@
   "description": "Standalone backend for universal recipe import with Playwright and AI-assisted extraction.",
   "main": "src/index.js",
   "scripts": {
-    "postinstall": "npx playwright install chromium",
+    "postinstall": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install chromium",
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "test": "node --test",
