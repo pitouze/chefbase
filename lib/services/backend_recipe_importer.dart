@@ -22,7 +22,7 @@ class BackendRecipeImporter {
 
   final Uri _baseUri;
 
-  static const Duration _requestTimeout = Duration(seconds: 10);
+  static const Duration _requestTimeout = Duration(seconds: 60);
 
   Future<ImportedRecipeData> importFromUrl(String rawUrl) async {
     final recipeUri = Uri.tryParse(rawUrl.trim());

@@ -571,7 +571,7 @@ class _AddRecipePageState extends State<AddRecipePage> {
                     : const Icon(Icons.link_rounded),
                 label: Text(
                   _isImportingFromUrl
-                      ? 'Import en cours...'
+                      ? 'Import en cours… le serveur peut mettre quelques secondes à se réveiller.'
                       : 'Importer depuis URL',
                 ),
               ),
