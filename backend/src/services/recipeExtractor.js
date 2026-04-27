@@ -10,24 +10,30 @@ import { normalizeRecipe } from '../utils/normalizeRecipe.js';
 export async function extractRecipeFromUrl(rawUrl) {
   const url = validateUrl(rawUrl);
   const httpPageContent = await tryExtractHttpPageContent(url);
+  const fastJsonLdStartedAt = Date.now();
   const httpRecipe = tryExtractDeterministicRecipe({
     url: httpPageContent?.pageUrl || url,
     pageContent: httpPageContent,
   });
 
   if (hasUsableRecipeJsonLd(httpPageContent, httpRecipe)) {
+    logImportPath('fast-jsonld', fastJsonLdStartedAt, 'hit');
     return normalizeRecipe(httpRecipe);
   }
+  logImportPath('fast-jsonld', fastJsonLdStartedAt, 'miss');
 
   let aiRecipe = null;
   if (process.env.OPENAI_API_KEY && httpPageContent) {
+    const startedAt = Date.now();
     try {
       aiRecipe = await extractRecipeWithOpenAi({
         url: httpPageContent.pageUrl || url,
         pageContent: httpPageContent,
       });
       aiRecipe = validateAiRecipe(aiRecipe);
+      logImportPath('openai', startedAt, 'hit');
     } catch (error) {
+      logImportPath('openai', startedAt, 'failed');
       console.warn('OpenAI extraction failed, falling back to browser extraction.', error);
     }
   }
@@ -36,7 +42,14 @@ export async function extractRecipeFromUrl(rawUrl) {
     return normalizeRecipe(aiRecipe);
   }
 
-  const pageContent = await extractPageContent(url);
+  const playwrightStartedAt = Date.now();
+  let pageContent;
+  try {
+    pageContent = await extractPageContent(url);
+  } catch (error) {
+    logImportPath('playwright', playwrightStartedAt, 'failed');
+    throw error;
+  }
   const finalUrl = pageContent?.pageUrl || url;
   const fallbackRecipe = extractRecipeWithDeterministicParser({
     url: finalUrl,
@@ -45,17 +58,22 @@ export async function extractRecipeFromUrl(rawUrl) {
   const requiresAiCleanup = isPollutedRecipe(fallbackRecipe) || isPollutedPageContent(pageContent);
 
   if (!requiresAiCleanup && isUsableRecipe(fallbackRecipe)) {
+    logImportPath('playwright', playwrightStartedAt, 'hit');
     return normalizeRecipe(fallbackRecipe);
   }
+  logImportPath('playwright', playwrightStartedAt, 'miss');
 
   if (process.env.OPENAI_API_KEY && (!isUsableRecipe(fallbackRecipe) || requiresAiCleanup)) {
+    const startedAt = Date.now();
     try {
       aiRecipe = await extractRecipeWithOpenAi({
         url: finalUrl,
         pageContent,
       });
       aiRecipe = validateAiRecipe(aiRecipe);
+      logImportPath('openai', startedAt, 'hit');
     } catch (error) {
+      logImportPath('openai', startedAt, 'failed');
       console.warn('OpenAI extraction failed after browser extraction.', error);
     }
   }
@@ -76,9 +94,13 @@ export async function extractRecipeFromUrl(rawUrl) {
 }
 
 async function tryExtractHttpPageContent(url) {
+  const startedAt = Date.now();
   try {
-    return await extractHttpPageContent(url);
+    const pageContent = await extractHttpPageContent(url);
+    logImportPath('fast-http', startedAt, 'hit');
+    return pageContent;
   } catch (error) {
+    logImportPath('fast-http', startedAt, 'failed');
     console.warn('Fast HTTP extraction failed, falling back.', error);
     return null;
   }
@@ -97,7 +119,11 @@ function tryExtractDeterministicRecipe({ url, pageContent }) {
 }
 
 function hasUsableRecipeJsonLd(pageContent, recipe) {
-  return hasRecipeJsonLd(pageContent?.jsonLd) && isUsableRecipe(recipe) && !isPollutedRecipe(recipe);
+  return hasRecipeJsonLd(pageContent?.jsonLd) && isUsableRecipe(recipe) && Boolean(recipe?.imageUrl) && !isPollutedRecipe(recipe);
+}
+
+function logImportPath(path, startedAt, status) {
+  console.info(`[recipe-import] path=${path} status=${status} durationMs=${Date.now() - startedAt}`);
 }
 
 function validateUrl(rawUrl) {

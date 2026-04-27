@@ -11,6 +11,7 @@ export async function extractHttpPageContent(url) {
         '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 ChefBaseImportBot/1.0',
     },
     redirect: 'follow',
+    signal: AbortSignal.timeout(5_000),
   });
 
   if (!response.ok) {

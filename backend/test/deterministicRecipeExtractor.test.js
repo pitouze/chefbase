@@ -32,6 +32,24 @@ test('formats structured ingredients and cleans instruction steps deterministica
   ]);
 });
 
+function recipeJsonLdWithImage(image) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Recipe',
+    name: 'Tarte aux pommes',
+    image,
+    recipeIngredient: [
+      '200 g farine',
+      '3 pommes',
+      '100 g sucre',
+    ],
+    recipeInstructions: [
+      { '@type': 'HowToStep', text: 'Mélanger la farine et le sucre.' },
+      { '@type': 'HowToStep', text: 'Ajouter les pommes et cuire 30 min.' },
+    ],
+  };
+}
+
 test('extracts clean Marmiton-like Recipe JSON-LD without page noise', () => {
   const recipeJsonLd = {
     '@context': 'https://schema.org',
@@ -157,6 +175,96 @@ test('converts schema.org ISO durations to French readable values', () => {
 
   assert.equal(result.prepTime, '20 min');
   assert.equal(result.cookTime, '1 h 30 min');
+});
+
+test('extracts Recipe JSON-LD string image', () => {
+  const result = extractRecipeWithDeterministicParser({
+    url: 'https://example.com/recettes/tarte',
+    pageContent: {
+      jsonLd: [JSON.stringify(recipeJsonLdWithImage('/images/recette/tarte-1200x800.jpg'))],
+      visibleText: '',
+      pageTitle: '',
+      imageCandidates: [],
+    },
+  });
+
+  assert.equal(result.imageUrl, 'https://example.com/images/recette/tarte-1200x800.jpg');
+});
+
+test('extracts Recipe JSON-LD array image and rejects logos/placeholders', () => {
+  const result = extractRecipeWithDeterministicParser({
+    url: 'https://example.com/recettes/tarte',
+    pageContent: {
+      jsonLd: [JSON.stringify(recipeJsonLdWithImage([
+        'https://example.com/assets/logo.svg',
+        'https://example.com/images/placeholder.jpg',
+        'https://example.com/images/recette/tarte-1200x800.jpg',
+      ]))],
+      visibleText: '',
+      pageTitle: '',
+      imageCandidates: [],
+    },
+  });
+
+  assert.equal(result.imageUrl, 'https://example.com/images/recette/tarte-1200x800.jpg');
+});
+
+test('extracts Recipe JSON-LD object image from url or contentUrl', () => {
+  const result = extractRecipeWithDeterministicParser({
+    url: 'https://example.com/recettes/tarte',
+    pageContent: {
+      jsonLd: [JSON.stringify(recipeJsonLdWithImage({
+        '@type': 'ImageObject',
+        contentUrl: '/media/recette/tarte-640x427.jpg',
+        width: 640,
+        height: 427,
+      }))],
+      visibleText: '',
+      pageTitle: '',
+      imageCandidates: [],
+    },
+  });
+
+  assert.equal(result.imageUrl, 'https://example.com/media/recette/tarte-640x427.jpg');
+});
+
+test('extracts Recipe JSON-LD array object image and prefers the largest recipe-like image', () => {
+  const result = extractRecipeWithDeterministicParser({
+    url: 'https://example.com/recettes/tarte',
+    pageContent: {
+      jsonLd: [JSON.stringify(recipeJsonLdWithImage([
+        {
+          '@type': 'ImageObject',
+          url: 'https://example.com/assets/icon.png',
+          width: 1024,
+          height: 1024,
+        },
+        {
+          '@type': 'ImageObject',
+          url: 'https://example.com/images/recette/tarte-small.jpg',
+          width: 180,
+          height: 120,
+        },
+        {
+          '@type': 'ImageObject',
+          url: 'https://example.com/images/recette/tarte-large.jpg',
+          width: 1400,
+          height: 900,
+        },
+        {
+          '@type': 'ImageObject',
+          contentUrl: 'https://example.com/images/recette/tarte-medium.jpg',
+          width: 800,
+          height: 533,
+        },
+      ]))],
+      visibleText: '',
+      pageTitle: '',
+      imageCandidates: [],
+    },
+  });
+
+  assert.equal(result.imageUrl, 'https://example.com/images/recette/tarte-large.jpg');
 });
 
 test('prioritizes schema recipe fields over Marmiton consent, affiliate, and logo noise', () => {

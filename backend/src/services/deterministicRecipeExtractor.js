@@ -339,31 +339,17 @@ function parseServings(value, { isMarmiton = false } = {}) {
 }
 
 function pickImageFromJsonLd(recipe, baseUrl) {
-  const rawImage = recipe?.image;
-
-  if (typeof rawImage === 'string') {
-    return cleanImageUrl(resolveUrl(rawImage, baseUrl));
-  }
-
-  if (Array.isArray(rawImage)) {
-    return rawImage
-      .map((entry) => imageCandidateFromJsonLd(entry, baseUrl))
-      .filter(Boolean)
-      .sort((left, right) => right.score - left.score)
-      .map((candidate) => candidate.url)[0] ?? null;
-  }
-
-  if (rawImage && typeof rawImage === 'object') {
-    return imageCandidateFromJsonLd(rawImage, baseUrl)?.url ?? null;
-  }
-
-  return null;
+  return flattenImageCandidates(recipe?.image)
+    .map((entry) => imageCandidateFromJsonLd(entry, baseUrl))
+    .filter(Boolean)
+    .sort((left, right) => right.score - left.score)
+    .map((candidate) => candidate.url)[0] ?? null;
 }
 
 function imageCandidateFromJsonLd(value, baseUrl) {
   if (typeof value === 'string') {
     const url = cleanImageUrl(resolveUrl(value, baseUrl));
-    return url ? { url, score: 0 } : null;
+    return url ? { url, score: scoreImageCandidate({ url }) } : null;
   }
 
   if (!value || typeof value !== 'object') {
@@ -382,7 +368,27 @@ function imageCandidateFromJsonLd(value, baseUrl) {
     return null;
   }
 
-  return { url, score: width * height };
+  return {
+    url,
+    score: scoreImageCandidate({
+      url,
+      alt: value.caption ?? value.name ?? value.alt,
+      width,
+      height,
+    }),
+  };
+}
+
+function flattenImageCandidates(value) {
+  if (Array.isArray(value)) {
+    return value.flatMap(flattenImageCandidates);
+  }
+
+  if (value === undefined || value === null) {
+    return [];
+  }
+
+  return [value];
 }
 
 function pickFallbackImage(candidates) {
@@ -415,7 +421,52 @@ function cleanImageUrl(value, candidate = {}) {
     return null;
   }
 
+  try {
+    const parsed = new URL(url);
+    if (IMAGE_EXTENSION_REJECT_PATTERN.test(parsed.pathname)) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+
   return url;
+}
+
+function scoreImageCandidate({ url, alt = '', width = 0, height = 0 }) {
+  const area = width && height ? width * height : 0;
+  const comparable = removeDiacritics(`${url} ${alt}`).toLowerCase();
+  const sizeHint = extractImageSizeHint(comparable);
+  const querySizeHint = extractImageQuerySizeHint(url);
+  const hintedArea = Math.max(
+    sizeHint ? sizeHint.width * sizeHint.height : 0,
+    querySizeHint ? querySizeHint.width * querySizeHint.height : 0,
+  );
+  const recipeLikeScore = IMAGE_RECIPE_HINT_PATTERN.test(comparable) ? 500_000 : 0;
+  const foodLikeScore = IMAGE_FOOD_HINT_PATTERN.test(comparable) ? 250_000 : 0;
+  return Math.max(area, hintedArea) + recipeLikeScore + foodLikeScore;
+}
+
+function extractImageSizeHint(value) {
+  const match = value.match(/(?:^|[^\d])(\d{3,4})[x_-](\d{3,4})(?:[^\d]|$)/);
+  if (!match) {
+    return null;
+  }
+
+  const width = Number.parseInt(match[1], 10);
+  const height = Number.parseInt(match[2], 10);
+  return width && height ? { width, height } : null;
+}
+
+function extractImageQuerySizeHint(value) {
+  try {
+    const params = new URL(value).searchParams;
+    const width = Number.parseInt(params.get('w') ?? params.get('width') ?? '0', 10);
+    const height = Number.parseInt(params.get('h') ?? params.get('height') ?? '0', 10);
+    return width && height ? { width, height } : null;
+  } catch {
+    return null;
+  }
 }
 
 function resolveUrl(value, baseUrl) {
@@ -803,7 +854,10 @@ const METADATA_LINE_PATTERN = /^(?:temps total|préparation|preparation|repos|cu
 const SECTION_BOUNDARY_PATTERN = /^(?:preparation|etape\s*\d+|instructions?|methode|notes?|nutrition|commentaires?|ustensiles?|equipements?|materiels?)$/;
 const COOKING_ACTION_PATTERN = /^(?:prechauffer|melanger|rajouter|ajouter|incorporer|beurrer|enfourner|sortir|verser|faire|cuire|laisser|mettre|placer|couper|hacher|emincer|battre|fouetter|remuer|servir|egoutter|rincer|chauffer|fondre|disposer|saler|poivrer|parsemer|recouvrir|reserver|preparer|former|deposer|retirer|piquer|etaler|garnir|peler|eplucher|laver)\b/;
 const TITLE_REJECT_PATTERN = /\b(partenaires?|cookies?|rgpd|consentement|publicite|confidentialite|privacy)\b/;
-const IMAGE_REJECT_PATTERN = /\b(logo|banner|banniere|advert|publicite|ads?|cookie|consent|consentement|partenaires?|sprite|icon|favicon|placeholder)\b|\.svg(?:[?#]|$)/;
+const IMAGE_REJECT_PATTERN = /\b(logo|banner|banniere|advert|publicite|ads?|cookie|consent|consentement|partenaires?|sprite|icons?|favicon|placeholder|default|blank|tracking|pixel)\b|\.svg(?:[?#]|$)/;
+const IMAGE_EXTENSION_REJECT_PATTERN = /\.(?:svg|ico)(?:[?#]|$)/i;
+const IMAGE_RECIPE_HINT_PATTERN = /\b(?:recipe|recette|recettes|dish|plat|food|cuisine)\b/;
+const IMAGE_FOOD_HINT_PATTERN = /\b(?:gateau|gâteau|cake|chocolat|pomme|pommes|tarte|soupe|salade|poulet|boeuf|poisson|dessert|moelleux|olive|olives)\b/;
 const INGREDIENT_REJECT_PATTERN = /\b(casseroles?|fouets?|four|balance|acheter|top|meilleurs?|details?)\b/;
 const INGREDIENT_GARBAGE_CUT_PATTERN = /\b(?:top\s*\d*|meilleurs?|acheter|d[ée]tails?|ustensiles?|equipements?|materiels?|casseroles?|four|balance|fouets?)\b[\s\S]*$/i;
 const INGREDIENT_REJECT_WORDS = new Set([

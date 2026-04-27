@@ -1,5 +1,6 @@
 const OPENAI_MODEL = process.env.OPENAI_MODEL ?? 'gpt-4.1-mini';
 const OPENAI_API_URL = process.env.OPENAI_API_URL ?? 'https://api.openai.com/v1/chat/completions';
+const OPENAI_TIMEOUT_MS = 20_000;
 
 const recipeJsonSchema = {
   name: 'chefbase_recipe_import',
@@ -79,6 +80,7 @@ export async function extractRecipeWithOpenAi({ url, pageContent }) {
         },
       ],
     }),
+    signal: AbortSignal.timeout(OPENAI_TIMEOUT_MS),
   });
 
   if (!response.ok) {
