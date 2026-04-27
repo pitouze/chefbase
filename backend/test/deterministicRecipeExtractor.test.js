@@ -111,6 +111,8 @@ test('extracts clean Marmiton-like Recipe JSON-LD without page noise', () => {
     result.ingredients.map((ingredient) => ingredient.name),
     ['yaourt nature', 'sucre', 'farine'],
   );
+  assert.equal(result.prepTime, '15 min');
+  assert.equal(result.cookTime, '30 min');
   assert.deepEqual(result.instructions, [
     'Préchauffer le four à 180°C.',
     'Mélanger le yaourt, le sucre et la farine.',
@@ -123,6 +125,38 @@ test('extracts clean Marmiton-like Recipe JSON-LD without page noise', () => {
   assert.equal(serialized.includes('ustensiles'), false);
   assert.equal(serialized.includes('voir toutes les recettes'), false);
   assert.equal(serialized.includes('999 g texte de navigation'), false);
+});
+
+test('converts schema.org ISO durations to French readable values', () => {
+  const recipeJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Recipe',
+    name: 'Soupe de légumes',
+    prepTime: 'PT20M',
+    cookTime: 'PT1H30M',
+    recipeIngredient: [
+      '2 carottes',
+      '1 pomme de terre',
+      '1 l eau',
+    ],
+    recipeInstructions: [
+      { '@type': 'HowToStep', text: 'Couper les légumes.' },
+      { '@type': 'HowToStep', text: 'Cuire la soupe 1 h 30 min.' },
+    ],
+  };
+
+  const result = extractRecipeWithDeterministicParser({
+    url: 'https://example.com/soupe',
+    pageContent: {
+      jsonLd: [JSON.stringify(recipeJsonLd)],
+      visibleText: '',
+      pageTitle: '',
+      imageCandidates: [],
+    },
+  });
+
+  assert.equal(result.prepTime, '20 min');
+  assert.equal(result.cookTime, '1 h 30 min');
 });
 
 test('prioritizes schema recipe fields over Marmiton consent, affiliate, and logo noise', () => {

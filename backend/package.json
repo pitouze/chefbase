@@ -10,7 +10,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "test": "node --test",
-    "check": "node --check src/index.js && node --check src/app.js && node --check src/routes/importRecipeRoute.js && node --check src/services/browserExtractor.js && node --check src/services/recipeExtractor.js && node --check src/services/openAiRecipeExtractor.js && node --check src/services/deterministicRecipeExtractor.js && node --check src/utils/normalizeRecipe.js"
+    "check": "node --check src/index.js && node --check src/app.js && node --check src/routes/importRecipeRoute.js && node --check src/services/browserExtractor.js && node --check src/services/httpPageExtractor.js && node --check src/services/recipeExtractor.js && node --check src/services/openAiRecipeExtractor.js && node --check src/services/deterministicRecipeExtractor.js && node --check src/utils/normalizeRecipe.js"
   },
   "engines": {
     "node": ">=20.0.0"

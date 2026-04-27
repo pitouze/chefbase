@@ -26,8 +26,12 @@ export function hasRecipeJsonLd(blocks) {
 function extractFromJsonLdRecipe(recipe, url) {
   return {
     title: getString(recipe?.name),
+    description: getString(recipe?.description),
     ingredients: extractIngredientsFromJsonLd(recipe),
     instructions: extractInstructionsFromJsonLd(recipe),
+    prepTime: formatDuration(recipe?.prepTime ?? recipe?.totalTime),
+    cookTime: formatDuration(recipe?.cookTime),
+    servings: parseServings(recipe?.recipeYield),
     imageUrl: pickImageFromJsonLd(recipe, url),
     categories: extractCategories(recipe?.recipeCategory),
   };
@@ -169,6 +173,25 @@ function extractCategories(value) {
     .flatMap((entry) => entry.split(/[|,/]/))
     .map(cleanText)
     .filter(Boolean);
+}
+
+function formatDuration(value) {
+  const text = getString(value);
+  if (!text) {
+    return null;
+  }
+
+  const match = text.match(/^P(?:T)?(?:(\d+)H)?(?:(\d+)M)?$/i);
+  if (!match) {
+    return text;
+  }
+
+  const hours = Number.parseInt(match[1] ?? '0', 10);
+  const minutes = Number.parseInt(match[2] ?? '0', 10);
+  return [
+    hours ? `${hours} h` : null,
+    minutes ? `${minutes} min` : null,
+  ].filter(Boolean).join(' ') || null;
 }
 
 function extractFromVisibleText(visibleText, { isMarmiton = false } = {}) {
@@ -774,15 +797,15 @@ function decodeHtmlEntities(value) {
     .replace(/&#39;|&apos;/gi, "'");
 }
 
-const NOISE_LINE_PATTERN = /\b(partenaires?|cookies?|confidentialite|publicite|amazon|ustensiles?|casseroles?|four top|fouet cuisine|balance de cuisine|acheter|top des meilleurs|voir toutes les recettes|nos recettes|newsletter|sponsorise|partage|commentaires?|marmiton mag)\b/;
-const COOKIE_TEXT_PATTERN = /\b(cookies?|partenaires?|consentement|donnees personnelles|publicite personnalisee|confidentialite)\b/;
+const NOISE_LINE_PATTERN = /\b(partenaires?|cookies?|rgpd|privacy|confidentialite|consentement|donnees personnelles|publicite|amazon|ustensiles?|equipements?|materiels?|casseroles?|four top|fouets?|fouet cuisine|balance(?: de cuisine)?|acheter|details?|top des meilleurs|voir toutes les recettes|nos recettes|newsletter|sponsorise|partage|commentaires?|marmiton mag)\b/;
+const COOKIE_TEXT_PATTERN = /\b(cookies?|partenaires?|rgpd|privacy|consentement|donnees personnelles|publicite personnalisee|confidentialite)\b/;
 const METADATA_LINE_PATTERN = /^(?:temps total|préparation|preparation|repos|cuisson|temps de cuisson|temps de préparation|temps de preparation|difficulté|difficulte|budget|très facile|tres facile|facile|bon marché|bon marche|\d+\s*(?:h|min|mn|minutes?))(?:\s*:.*)?$/;
-const SECTION_BOUNDARY_PATTERN = /^(?:preparation|etape\s*\d+|instructions?|methode|notes?|nutrition|commentaires?)$/;
+const SECTION_BOUNDARY_PATTERN = /^(?:preparation|etape\s*\d+|instructions?|methode|notes?|nutrition|commentaires?|ustensiles?|equipements?|materiels?)$/;
 const COOKING_ACTION_PATTERN = /^(?:prechauffer|melanger|rajouter|ajouter|incorporer|beurrer|enfourner|sortir|verser|faire|cuire|laisser|mettre|placer|couper|hacher|emincer|battre|fouetter|remuer|servir|egoutter|rincer|chauffer|fondre|disposer|saler|poivrer|parsemer|recouvrir|reserver|preparer|former|deposer|retirer|piquer|etaler|garnir|peler|eplucher|laver)\b/;
-const TITLE_REJECT_PATTERN = /\b(partenaires?|cookies?|consentement|publicite|confidentialite)\b/;
-const IMAGE_REJECT_PATTERN = /\b(logo|banner|banniere|advert|publicite|ads?|cookie|partenaires?|sprite|icon|favicon|placeholder)\b|\.svg(?:[?#]|$)/;
-const INGREDIENT_REJECT_PATTERN = /\b(casseroles?|fouets?|four|balance|acheter|top|meilleurs?)\b/;
-const INGREDIENT_GARBAGE_CUT_PATTERN = /\b(?:top\s*\d*|meilleurs?|acheter|d[ée]tails?|ustensiles?|casseroles?|four|balance)\b[\s\S]*$/i;
+const TITLE_REJECT_PATTERN = /\b(partenaires?|cookies?|rgpd|consentement|publicite|confidentialite|privacy)\b/;
+const IMAGE_REJECT_PATTERN = /\b(logo|banner|banniere|advert|publicite|ads?|cookie|consent|consentement|partenaires?|sprite|icon|favicon|placeholder)\b|\.svg(?:[?#]|$)/;
+const INGREDIENT_REJECT_PATTERN = /\b(casseroles?|fouets?|four|balance|acheter|top|meilleurs?|details?)\b/;
+const INGREDIENT_GARBAGE_CUT_PATTERN = /\b(?:top\s*\d*|meilleurs?|acheter|d[ée]tails?|ustensiles?|equipements?|materiels?|casseroles?|four|balance|fouets?)\b[\s\S]*$/i;
 const INGREDIENT_REJECT_WORDS = new Set([
   'acheter',
   "d'",

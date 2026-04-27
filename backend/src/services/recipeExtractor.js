@@ -1,4 +1,5 @@
 import { extractPageContent } from './browserExtractor.js';
+import { extractHttpPageContent } from './httpPageExtractor.js';
 import {
   extractRecipeWithDeterministicParser,
   hasRecipeJsonLd,
@@ -8,23 +9,46 @@ import { normalizeRecipe } from '../utils/normalizeRecipe.js';
 
 export async function extractRecipeFromUrl(rawUrl) {
   const url = validateUrl(rawUrl);
+  const httpPageContent = await tryExtractHttpPageContent(url);
+  const httpRecipe = tryExtractDeterministicRecipe({
+    url: httpPageContent?.pageUrl || url,
+    pageContent: httpPageContent,
+  });
+
+  if (hasUsableRecipeJsonLd(httpPageContent, httpRecipe)) {
+    return normalizeRecipe(httpRecipe);
+  }
+
+  let aiRecipe = null;
+  if (process.env.OPENAI_API_KEY && httpPageContent) {
+    try {
+      aiRecipe = await extractRecipeWithOpenAi({
+        url: httpPageContent.pageUrl || url,
+        pageContent: httpPageContent,
+      });
+      aiRecipe = validateAiRecipe(aiRecipe);
+    } catch (error) {
+      console.warn('OpenAI extraction failed, falling back to browser extraction.', error);
+    }
+  }
+
+  if (aiRecipe) {
+    return normalizeRecipe(aiRecipe);
+  }
+
   const pageContent = await extractPageContent(url);
   const finalUrl = pageContent?.pageUrl || url;
   const fallbackRecipe = extractRecipeWithDeterministicParser({
     url: finalUrl,
     pageContent,
   });
-  const requiresAiCleanup =
-    isMarmitonUrl(finalUrl) ||
-    isPollutedRecipe(fallbackRecipe) ||
-    isPollutedPageContent(pageContent);
+  const requiresAiCleanup = isPollutedRecipe(fallbackRecipe) || isPollutedPageContent(pageContent);
 
-  if (!requiresAiCleanup && hasRecipeJsonLd(pageContent.jsonLd)) {
-    return fallbackRecipe;
+  if (!requiresAiCleanup && isUsableRecipe(fallbackRecipe)) {
+    return normalizeRecipe(fallbackRecipe);
   }
 
-  let aiRecipe = null;
-  if (process.env.OPENAI_API_KEY && (requiresAiCleanup || !hasRecipeJsonLd(pageContent.jsonLd))) {
+  if (process.env.OPENAI_API_KEY && (!isUsableRecipe(fallbackRecipe) || requiresAiCleanup)) {
     try {
       aiRecipe = await extractRecipeWithOpenAi({
         url: finalUrl,
@@ -32,7 +56,7 @@ export async function extractRecipeFromUrl(rawUrl) {
       });
       aiRecipe = validateAiRecipe(aiRecipe);
     } catch (error) {
-      console.warn('OpenAI extraction failed, falling back to deterministic parser.', error);
+      console.warn('OpenAI extraction failed after browser extraction.', error);
     }
   }
 
@@ -49,6 +73,31 @@ export async function extractRecipeFromUrl(rawUrl) {
   };
 
   return normalizeRecipe(mergedRecipe);
+}
+
+async function tryExtractHttpPageContent(url) {
+  try {
+    return await extractHttpPageContent(url);
+  } catch (error) {
+    console.warn('Fast HTTP extraction failed, falling back.', error);
+    return null;
+  }
+}
+
+function tryExtractDeterministicRecipe({ url, pageContent }) {
+  if (!pageContent) {
+    return null;
+  }
+
+  try {
+    return extractRecipeWithDeterministicParser({ url, pageContent });
+  } catch {
+    return null;
+  }
+}
+
+function hasUsableRecipeJsonLd(pageContent, recipe) {
+  return hasRecipeJsonLd(pageContent?.jsonLd) && isUsableRecipe(recipe) && !isPollutedRecipe(recipe);
 }
 
 function validateUrl(rawUrl) {
@@ -80,14 +129,6 @@ function importRequiresAiError() {
   const error = new Error('Import incomplet : ce site nécessite l’import IA.');
   error.statusCode = 422;
   return error;
-}
-
-function isMarmitonUrl(url) {
-  try {
-    return new URL(url).hostname.toLowerCase().includes('marmiton.org');
-  } catch {
-    return false;
-  }
 }
 
 function validateAiRecipe(recipe) {
@@ -136,6 +177,16 @@ function isPollutedRecipe(recipe) {
   return POLLUTED_TEXT_PATTERN.test(title) || POLLUTED_TEXT_PATTERN.test(description);
 }
 
+function isUsableRecipe(recipe) {
+  return Boolean(
+    recipe?.title &&
+    Array.isArray(recipe.ingredients) &&
+    recipe.ingredients.length > 0 &&
+    Array.isArray(recipe.instructions) &&
+    recipe.instructions.length > 0,
+  );
+}
+
 function isPollutedPageContent(pageContent) {
   const title = comparableText(pageContent?.pageTitle);
   const visibleText = comparableText(pageContent?.visibleText?.slice(0, 4_000));
@@ -170,6 +221,6 @@ function comparableText(value) {
     .toLowerCase();
 }
 
-const POLLUTED_TEXT_PATTERN = /\b(partenaires?|cookies?|donnees personnelles)\b/;
-const AI_INGREDIENT_REJECT_PATTERN = /\b(casseroles?|fouets?|four|balance|acheter|top|meilleurs?)\b/;
+const POLLUTED_TEXT_PATTERN = /\b(partenaires?|cookies?|rgpd|donnees personnelles|consentement|confidentialite|privacy)\b/;
+const AI_INGREDIENT_REJECT_PATTERN = /\b(casseroles?|fouets?|four|balance|acheter|top|meilleurs?|details?)\b/;
 const IMAGE_REJECT_PATTERN = /\b(logo|banner|banniere|advert|publicite|ads?|cookie|consent|consentement|partenaires?|sprite|icon|favicon|placeholder)\b|\.svg(?:[?#]|$)/;

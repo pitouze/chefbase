@@ -17,8 +17,8 @@ export function normalizeRecipe(recipe) {
     description: cleanContentString(recipe?.description),
     ingredients: normalizeIngredients(recipe?.ingredients),
     instructions: normalizeInstructions(recipe?.instructions),
-    prepTime: cleanString(recipe?.prepTime),
-    cookTime: cleanString(recipe?.cookTime),
+    prepTime: normalizeDuration(recipe?.prepTime),
+    cookTime: normalizeDuration(recipe?.cookTime),
     servings: normalizeServings(recipe?.servings),
     imageUrl: cleanImageUrl(recipe?.imageUrl),
     notes: cleanContentString(recipe?.notes),
@@ -164,6 +164,25 @@ function normalizeServings(value) {
   }
 
   return undefined;
+}
+
+function normalizeDuration(value) {
+  const text = cleanString(value);
+  if (!text) {
+    return undefined;
+  }
+
+  const match = text.match(/^P(?:T)?(?:(\d+)H)?(?:(\d+)M)?$/i);
+  if (!match) {
+    return text;
+  }
+
+  const hours = Number.parseInt(match[1] ?? '0', 10);
+  const minutes = Number.parseInt(match[2] ?? '0', 10);
+  return [
+    hours ? `${hours} h` : null,
+    minutes ? `${minutes} min` : null,
+  ].filter(Boolean).join(' ') || undefined;
 }
 
 function normalizeQuantity(value) {
@@ -327,8 +346,8 @@ function isUsefulValue(value) {
   return true;
 }
 
-const HARD_NOISE_PATTERN = /\b(partenaires?|cookies?|ustensiles?|casseroles?|four top|fouet cuisine|balance de cuisine|acheter|amazon|top des meilleurs|voir toutes les recettes|marmiton mag|commentaires?|publicite|newsletter)\b.*$/i;
-const IMAGE_NOISE_PATTERN = /\b(logo|banner|banniere|advert|publicite|ads?|cookie|partenaires?|sprite|icon|favicon|placeholder)\b/;
+const HARD_NOISE_PATTERN = /\b(partenaires?|cookies?|rgpd|privacy|ustensiles?|equipements?|materiels?|casseroles?|four top|fouets?|fouet cuisine|balance(?: de cuisine)?|acheter|details?|amazon|top des meilleurs|voir toutes les recettes|marmiton mag|commentaires?|publicite|newsletter)\b.*$/i;
+const IMAGE_NOISE_PATTERN = /\b(logo|banner|banniere|advert|publicite|ads?|cookie|consent|consentement|partenaires?|sprite|icon|favicon|placeholder)\b|\.svg(?:[?#]|$)/;
 const INGREDIENT_DISPLAY_UNITS = new Set([
   'c',
   'cac',
