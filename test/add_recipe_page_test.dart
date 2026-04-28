@@ -227,12 +227,15 @@ void main() {
         const Offset(0, -700),
         warnIfMissed: false,
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
     }
     await tester.ensureVisible(saveButton);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
     tester.widget<ElevatedButton>(saveButton).onPressed?.call();
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(savedRecipe?['imageUrl'], 'https://example.com/imported.jpg');
     expect(savedRecipe?['imageData'], isEmpty);

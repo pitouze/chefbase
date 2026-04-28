@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:chefbase_app/pages/recipes_page.dart';
 import 'package:chefbase_app/pages/recipe_detail_page.dart';
 import 'package:chefbase_app/services/recipe_image_source.dart';
 import 'package:chefbase_app/services/recipe_store.dart';
@@ -68,6 +69,46 @@ void main() {
     }
   });
 
+  test('imported recipe with imageUrl persists it', () async {
+    SharedPreferences.setMockInitialValues({});
+    final tempDir = await Directory.systemTemp.createTemp(
+      'chefbase_imported_recipe_image_url_',
+    );
+    RecipeStore.configureTestStorageDirectory(tempDir);
+
+    try {
+      await RecipeStore.saveRecipes([
+        {
+          'title': 'Imported recipe',
+          'description': 'Imported from URL',
+          'notes': '',
+          'imageUrl': 'https://example.com/imported.jpg',
+          'imageData': '',
+          'ingredients': const [
+            {'name': 'farine'},
+          ],
+          'instructions': const ['Cuire.'],
+          'prepTime': '-',
+          'cookTime': '-',
+          'servings': 1,
+          'categories': const ['plat'],
+          'isFavorite': false,
+          'createdAt': 33,
+        },
+      ]);
+
+      final loaded = await RecipeStore.loadRecipes();
+      final stored = loaded.singleWhere((recipe) => recipe['createdAt'] == 33);
+      expect(stored['imageUrl'], 'https://example.com/imported.jpg');
+      expect(stored['imageData'], isEmpty);
+    } finally {
+      RecipeStore.configureTestStorageDirectory(null);
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+    }
+  });
+
   testWidgets('detail page displays remote imageUrl when present',
       (tester) async {
     await tester.pumpWidget(
@@ -89,5 +130,23 @@ void main() {
     final image = tester.widget<Image>(find.byType(Image));
     expect(image.image, isA<NetworkImage>());
     expect((image.image as NetworkImage).url, 'https://example.com/remote.jpg');
+  });
+
+  testWidgets('recipe list thumbnail displays remote imageUrl', (tester) async {
+    const imageUrl = 'https://example.com/list-remote.jpg';
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: RecipeListThumbnail(
+            imageUrl: imageUrl,
+            imageData: 'base64-data',
+          ),
+        ),
+      ),
+    );
+
+    final image = tester.widget<Image>(find.byKey(const ValueKey(imageUrl)));
+    expect(image.image, isA<NetworkImage>());
+    expect((image.image as NetworkImage).url, imageUrl);
   });
 }

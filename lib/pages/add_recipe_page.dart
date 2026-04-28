@@ -46,6 +46,7 @@ class _AddRecipePageState extends State<AddRecipePage> {
   bool _debugLoggedPreviewFrame = false;
   String _lastImageUrlValue = '';
   bool _isImportingFromUrl = false;
+  bool _hasImportedRecipe = false;
   String? _urlImportMessage;
 
   late final BackendRecipeImporter _backendRecipeImporter;
@@ -330,6 +331,12 @@ class _AddRecipePageState extends State<AddRecipePage> {
       'Recipe image import: imageUrl saved "$imageUrl" '
       'hasImage=${imageBase64.isNotEmpty} base64Length=${imageBase64.length}',
     );
+    if (_hasImportedRecipe) {
+      debugPrint(
+        'saved imported recipe imageUrl: '
+        '${imageUrl.trim().isNotEmpty ? 'present' : 'absent'}',
+      );
+    }
 
     Navigator.pop(context, recipe);
   }
@@ -393,6 +400,8 @@ class _AddRecipePageState extends State<AddRecipePage> {
     if (imported.servings != null) {
       _servingsController.text = imported.servings!.toString();
     }
+
+    _hasImportedRecipe = true;
 
     if ((imported.imageUrl?.isNotEmpty ?? false)) {
       _imageUrlController.text = imported.imageUrl!;

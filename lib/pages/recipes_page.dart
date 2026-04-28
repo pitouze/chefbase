@@ -302,87 +302,10 @@ class _RecipesPageState extends State<RecipesPage> {
     );
   }
 
-  Widget _placeholderThumb() {
-    return Container(
-      width: 48,
-      height: 48,
-      color: const Color(0xFFF6F1EB),
-      child: const Icon(
-        Icons.menu_book_outlined,
-        size: 18,
-        color: Color(0xFF8A7A6E),
-      ),
-    );
-  }
-
-  Widget _buildRecipeImage(String imagePath, String imageData) {
-    final path = imagePath.trim();
-    final data = imageData.trim();
-    final imageSource = resolveRecipeImageSource(path, data);
-
-    debugPrint('Recipe image import: list imageUrl loaded "$imagePath"');
-
-    if (imageSource == RecipeImageSource.network) {
-      debugPrintRecipeNetworkImageUrl('list', path);
-      return Image.network(
-        path,
-        key: ValueKey(path),
-        width: 48,
-        height: 48,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          debugPrintRecipeNetworkImageError('list', path, error, stackTrace);
-          return buildRecipeNetworkImageErrorBox(
-            imageUrl: path,
-            error: error,
-            width: 48,
-            height: 48,
-            titleFontSize: 7,
-            bodyFontSize: 6,
-            padding: const EdgeInsets.all(3),
-            icon: Icons.error_outline,
-          );
-        },
-      );
-    }
-
-    if (imageSource == RecipeImageSource.memory) {
-      try {
-        final bytes = base64Decode(data);
-        debugPrint(
-          'Recipe image import: list image decoded length=${bytes.length}',
-        );
-        return Image.memory(
-          Uint8List.fromList(bytes),
-          width: 48,
-          height: 48,
-          fit: BoxFit.cover,
-          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-            if (frame != null || wasSynchronouslyLoaded) {
-              debugPrint('Recipe image import: list image displayed');
-            }
-            return child;
-          },
-          errorBuilder: (context, error, stackTrace) {
-            debugPrint('Recipe image import: list image display failed $error');
-            debugPrintStack(stackTrace: stackTrace);
-            return _placeholderThumb();
-          },
-        );
-      } catch (error, stackTrace) {
-        debugPrint('Recipe image import: list image decode failed $error');
-        debugPrintStack(stackTrace: stackTrace);
-        return _placeholderThumb();
-      }
-    }
-
-    return _placeholderThumb();
-  }
-
   Widget _recipeCard(Map<String, dynamic> recipe, int realIndex) {
     final categories = List<String>.from(recipe['categories'] as List? ?? []);
     final isFavorite = recipe['isFavorite'] as bool? ?? false;
-    final imagePath = recipe['imageUrl'] as String? ?? '';
+    final imageUrl = recipe['imageUrl'] as String? ?? '';
     final imageData = recipe['imageData'] as String? ?? '';
 
     return DecoratedBox(
@@ -401,7 +324,7 @@ class _RecipesPageState extends State<RecipesPage> {
               builder: (_) => RecipeDetailPage(
                 title: recipe['title'] as String,
                 description: recipe['description'] as String,
-                imageUrl: imagePath,
+                imageUrl: imageUrl,
                 imageData: imageData,
                 ingredients: List<Map<String, dynamic>>.from(
                   recipe['ingredients'] as List,
@@ -436,14 +359,7 @@ class _RecipesPageState extends State<RecipesPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: _buildRecipeImage(imagePath, imageData),
-                ),
-              ),
+              RecipeListThumbnail(imageUrl: imageUrl, imageData: imageData),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -603,6 +519,108 @@ class _RecipesPageState extends State<RecipesPage> {
         ],
       ),
     );
+  }
+}
+
+class RecipeListThumbnail extends StatelessWidget {
+  const RecipeListThumbnail({
+    super.key,
+    required this.imageUrl,
+    required this.imageData,
+  });
+
+  final String imageUrl;
+  final String imageData;
+
+  Widget _placeholderThumb() {
+    return Container(
+      width: 48,
+      height: 48,
+      color: const Color(0xFFF6F1EB),
+      child: const Icon(
+        Icons.menu_book_outlined,
+        size: 18,
+        color: Color(0xFF8A7A6E),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final path = imageUrl.trim();
+    final data = imageData.trim();
+    final imageSource = resolveRecipeImageSource(path, data);
+
+    debugPrint('Recipe image import: list imageUrl loaded "$imageUrl"');
+
+    final child = switch (imageSource) {
+      RecipeImageSource.network => _buildNetworkImage(path),
+      RecipeImageSource.memory => _buildMemoryImage(data),
+      RecipeImageSource.placeholder => _placeholderThumb(),
+    };
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: child,
+      ),
+    );
+  }
+
+  Widget _buildNetworkImage(String path) {
+    debugPrintRecipeNetworkImageUrl('list', path);
+    return Image.network(
+      path,
+      key: ValueKey(path),
+      width: 48,
+      height: 48,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        debugPrintRecipeNetworkImageError('list', path, error, stackTrace);
+        return buildRecipeNetworkImageErrorBox(
+          imageUrl: path,
+          error: error,
+          width: 48,
+          height: 48,
+          titleFontSize: 7,
+          bodyFontSize: 6,
+          padding: const EdgeInsets.all(3),
+          icon: Icons.error_outline,
+        );
+      },
+    );
+  }
+
+  Widget _buildMemoryImage(String data) {
+    try {
+      final bytes = base64Decode(data);
+      debugPrint(
+        'Recipe image import: list image decoded length=${bytes.length}',
+      );
+      return Image.memory(
+        Uint8List.fromList(bytes),
+        width: 48,
+        height: 48,
+        fit: BoxFit.cover,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (frame != null || wasSynchronouslyLoaded) {
+            debugPrint('Recipe image import: list image displayed');
+          }
+          return child;
+        },
+        errorBuilder: (context, error, stackTrace) {
+          debugPrint('Recipe image import: list image display failed $error');
+          debugPrintStack(stackTrace: stackTrace);
+          return _placeholderThumb();
+        },
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Recipe image import: list image decode failed $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return _placeholderThumb();
+    }
   }
 }
 
