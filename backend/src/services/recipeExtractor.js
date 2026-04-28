@@ -9,6 +9,7 @@ import { normalizeRecipe } from '../utils/normalizeRecipe.js';
 
 const PLAYWRIGHT_TIMEOUT_MS = 12_000;
 const INCOMPLETE_URL_ERROR = 'URL incomplète : colle le lien complet de la recette.';
+const MARMITON_INCOMPLETE_ERROR = 'Import Marmiton incomplet : essaie de copier la recette manuellement.';
 
 export async function extractRecipeFromUrl(rawUrl, dependencies = {}) {
   const {
@@ -17,6 +18,7 @@ export async function extractRecipeFromUrl(rawUrl, dependencies = {}) {
     extractRecipeWithOpenAi: openAiExtractor = extractRecipeWithOpenAi,
   } = dependencies;
   const url = validateUrl(rawUrl);
+  const isMarmiton = isMarmitonUrl(url);
   const httpPageContent = await tryExtractHttpPageContent(url, httpExtractor);
   const fastJsonLdStartedAt = Date.now();
   const httpRecipe = tryExtractDeterministicRecipe({
@@ -30,25 +32,36 @@ export async function extractRecipeFromUrl(rawUrl, dependencies = {}) {
   }
   logImportPath('fast-jsonld', fastJsonLdStartedAt, 'miss');
 
+  if (isMarmiton) {
+    if (isUsableRecipe(httpRecipe) && !isPollutedRecipe(httpRecipe)) {
+      logImportPath('fast-http-recipe', fastJsonLdStartedAt, 'hit');
+      return finalizeRecipe(httpRecipe, httpPageContent);
+    }
+
+    const aiRecipe = await tryExtractOpenAiRecipe({
+      url: httpPageContent?.pageUrl || url,
+      pageContent: httpPageContent,
+      openAiExtractor,
+      failedWarning: 'OpenAI extraction failed for Marmiton fast HTTP content.',
+    });
+
+    if (aiRecipe) {
+      return finalizeRecipe(aiRecipe, httpPageContent);
+    }
+
+    throw marmitonIncompleteError();
+  }
+
   const bestPreviousRecipe = isUsableRecipe(httpRecipe) && !isPollutedRecipe(httpRecipe)
     ? httpRecipe
     : null;
 
-  let aiRecipe = null;
-  if (process.env.OPENAI_API_KEY && httpPageContent) {
-    const startedAt = Date.now();
-    try {
-      aiRecipe = await openAiExtractor({
-        url: httpPageContent.pageUrl || url,
-        pageContent: httpPageContent,
-      });
-      aiRecipe = validateAiRecipe(aiRecipe);
-      logImportPath('openai', startedAt, 'hit');
-    } catch (error) {
-      logImportPath('openai', startedAt, 'failed');
-      console.warn('OpenAI extraction failed, falling back to browser extraction.', error);
-    }
-  }
+  let aiRecipe = await tryExtractOpenAiRecipe({
+    url: httpPageContent?.pageUrl || url,
+    pageContent: httpPageContent,
+    openAiExtractor,
+    failedWarning: 'OpenAI extraction failed, falling back to browser extraction.',
+  });
 
   if (aiRecipe) {
     return finalizeRecipe(aiRecipe, httpPageContent);
@@ -112,6 +125,32 @@ export async function extractRecipeFromUrl(rawUrl, dependencies = {}) {
   };
 
   return finalizeRecipe(mergedRecipe, pageContent);
+}
+
+async function tryExtractOpenAiRecipe({
+  url,
+  pageContent,
+  openAiExtractor,
+  failedWarning,
+}) {
+  if (!process.env.OPENAI_API_KEY || !pageContent) {
+    return null;
+  }
+
+  const startedAt = Date.now();
+  try {
+    const recipe = await openAiExtractor({
+      url,
+      pageContent,
+    });
+    const validatedRecipe = validateAiRecipe(recipe);
+    logImportPath('openai', startedAt, 'hit');
+    return validatedRecipe;
+  } catch (error) {
+    logImportPath('openai', startedAt, 'failed');
+    console.warn(failedWarning, error);
+    return null;
+  }
 }
 
 async function tryExtractHttpPageContent(url, httpExtractor) {
@@ -406,6 +445,12 @@ function importRequiresAiError() {
   return error;
 }
 
+function marmitonIncompleteError() {
+  const error = new Error(MARMITON_INCOMPLETE_ERROR);
+  error.statusCode = 422;
+  return error;
+}
+
 function validateAiRecipe(recipe) {
   const rawTitle = comparableText(recipe?.title);
   if (!rawTitle || POLLUTED_TEXT_PATTERN.test(rawTitle)) {
@@ -460,6 +505,14 @@ function isUsableRecipe(recipe) {
     Array.isArray(recipe.instructions) &&
     recipe.instructions.length > 0,
   );
+}
+
+function isMarmitonUrl(url) {
+  try {
+    return new URL(url).hostname.toLowerCase().includes('marmiton.org');
+  } catch {
+    return false;
+  }
 }
 
 function isPollutedPageContent(pageContent) {

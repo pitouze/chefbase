@@ -155,6 +155,154 @@ test('imports Marmiton-like JSON-LD @graph image from fast HTTP', async (t) => {
   );
 });
 
+test('Marmiton URL never calls Playwright when fast extraction is incomplete', async (t) => {
+  const originalOpenAiKey = process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  t.after(() => {
+    if (originalOpenAiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = originalOpenAiKey;
+    }
+  });
+
+  let playwrightCalls = 0;
+
+  await assert.rejects(
+    () => extractRecipeFromUrl('https://www.marmiton.org/recettes/recette_incomplete.aspx', {
+      extractHttpPageContent: async (url) => ({
+        pageUrl: url,
+        pageTitle: 'Recette incomplète',
+        jsonLd: [],
+        visibleText: 'Recette incomplète\nIngrédients\n',
+        imageCandidates: [],
+      }),
+      extractPageContent: async () => {
+        playwrightCalls += 1;
+        throw new Error('Playwright should not be called.');
+      },
+    }),
+    {
+      statusCode: 422,
+      message: 'Import Marmiton incomplet : essaie de copier la recette manuellement.',
+    },
+  );
+
+  assert.equal(playwrightCalls, 0);
+});
+
+test('Marmiton incomplete fast extraction uses OpenAI fallback from HTTP content', async (t) => {
+  const originalOpenAiKey = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY = 'test-key';
+  t.after(() => {
+    if (originalOpenAiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = originalOpenAiKey;
+    }
+  });
+
+  let openAiCalls = 0;
+  let playwrightCalls = 0;
+
+  const result = await extractRecipeFromUrl('https://www.marmiton.org/recettes/recette_crepes.aspx', {
+    extractHttpPageContent: async (url) => ({
+      pageUrl: url,
+      pageTitle: 'Crêpes faciles',
+      jsonLd: [
+        JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'Recipe',
+          name: 'Crêpes faciles',
+        }),
+      ],
+      visibleText: [
+        'Crêpes faciles',
+        'Ingrédients',
+        '250 g farine',
+        '3 œufs',
+        '50 cl lait',
+      ].join('\n'),
+      imageCandidates: [
+        {
+          src: 'https://www.marmiton.org/images/recette/crepes-1200x800.jpg',
+          source: 'og-image',
+        },
+      ],
+    }),
+    extractRecipeWithOpenAi: async ({ url, pageContent }) => {
+      openAiCalls += 1;
+      assert.equal(url, 'https://www.marmiton.org/recettes/recette_crepes.aspx');
+      assert.match(pageContent.visibleText, /250 g farine/);
+      return {
+        title: 'Crêpes faciles',
+        ingredients: ['250 g farine', '3 œufs', '50 cl lait'],
+        instructions: [
+          'Mélanger la farine et les œufs.',
+          'Ajouter le lait progressivement.',
+          'Cuire les crêpes dans une poêle chaude.',
+        ],
+        imageUrl: 'https://www.marmiton.org/images/recette/crepes-1200x800.jpg',
+      };
+    },
+    extractPageContent: async () => {
+      playwrightCalls += 1;
+      throw new Error('Playwright should not be called.');
+    },
+  });
+
+  assert.equal(openAiCalls, 1);
+  assert.equal(playwrightCalls, 0);
+  assert.equal(result.title, 'Crêpes faciles');
+  assert.equal(result.imageUrl, 'https://www.marmiton.org/images/recette/crepes-1200x800.jpg');
+  assert.deepEqual(result.instructions, [
+    'Mélanger la farine et les œufs.',
+    'Ajouter le lait progressivement.',
+    'Cuire les crêpes dans une poêle chaude.',
+  ]);
+});
+
+test('Marmiton Playwright timeout is not returned as 500', async (t) => {
+  const originalOpenAiKey = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY = 'test-key';
+  t.after(() => {
+    if (originalOpenAiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = originalOpenAiKey;
+    }
+  });
+
+  let playwrightCalls = 0;
+
+  await assert.rejects(
+    () => extractRecipeFromUrl('https://www.marmiton.org/recettes/recette_timeout.aspx', {
+      extractHttpPageContent: async (url) => ({
+        pageUrl: url,
+        pageTitle: 'Marmiton et ses partenaires',
+        jsonLd: [],
+        visibleText: 'Marmiton et ses partenaires utilisent des cookies.',
+        imageCandidates: [],
+      }),
+      extractRecipeWithOpenAi: async () => {
+        throw new Error('OpenAI extraction failed.');
+      },
+      extractPageContent: async () => {
+        playwrightCalls += 1;
+        throw new Error('Playwright extraction timed out.');
+      },
+    }),
+    (error) => {
+      assert.equal(error.statusCode, 422);
+      assert.notEqual(error.statusCode, 500);
+      assert.equal(error.message, 'Import Marmiton incomplet : essaie de copier la recette manuellement.');
+      return true;
+    },
+  );
+
+  assert.equal(playwrightCalls, 0);
+});
+
 test('JSON-LD recipe without image uses og:image and returns from fast HTTP', async (t) => {
   const originalOpenAiKey = process.env.OPENAI_API_KEY;
   process.env.OPENAI_API_KEY = 'test-key';
