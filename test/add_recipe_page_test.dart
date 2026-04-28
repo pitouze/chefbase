@@ -51,6 +51,20 @@ class _SuccessfulRecipeUrlImporter extends RecipeUrlImporter {
   }
 }
 
+class _ImageBackendRecipeImporter extends BackendRecipeImporter {
+  @override
+  Future<ImportedRecipeData> importFromUrl(String rawUrl) async {
+    return const ImportedRecipeData(
+      title: 'Recette avec image',
+      imageUrl: 'https://example.com/imported.jpg',
+      ingredients: [
+        {'name': 'farine'},
+      ],
+      instructions: ['Cuire.'],
+    );
+  }
+}
+
 void main() {
   testWidgets('uses backend importer before local URL importer',
       (tester) async {
@@ -158,5 +172,69 @@ void main() {
       find.text('https://www.marmiton.org/recettes/recette_test.aspx'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('saves backend imageUrl into recipe imageUrl field',
+      (tester) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    Map<String, dynamic>? savedRecipe;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async {
+              savedRecipe =
+                  await Navigator.of(context).push<Map<String, dynamic>>(
+                MaterialPageRoute(
+                  builder: (_) => AddRecipePage(
+                    backendRecipeImporter: _ImageBackendRecipeImporter(),
+                    recipeUrlImporter: _FailingRecipeUrlImporter(),
+                  ),
+                ),
+              );
+            },
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byType(TextFormField).at(0),
+      'https://www.marmiton.org/recettes/recette_test.aspx',
+    );
+    final importButton = find.widgetWithText(
+      ElevatedButton,
+      'Importer depuis URL',
+    );
+    await tester.ensureVisible(importButton);
+    await tester.tap(importButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    final saveButton = find.byKey(const ValueKey('saveRecipeButton'));
+    for (var i = 0; i < 6 && saveButton.evaluate().isEmpty; i += 1) {
+      await tester.drag(
+        find.byType(ListView),
+        const Offset(0, -700),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+    }
+    await tester.ensureVisible(saveButton);
+    await tester.pumpAndSettle();
+    tester.widget<ElevatedButton>(saveButton).onPressed?.call();
+    await tester.pumpAndSettle();
+
+    expect(savedRecipe?['imageUrl'], 'https://example.com/imported.jpg');
+    expect(savedRecipe?['imageData'], isEmpty);
   });
 }

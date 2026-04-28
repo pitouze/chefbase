@@ -1,7 +1,9 @@
 import 'dart:io';
 
+import 'package:chefbase_app/pages/recipe_detail_page.dart';
 import 'package:chefbase_app/services/recipe_image_source.dart';
 import 'package:chefbase_app/services/recipe_store.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -64,5 +66,28 @@ void main() {
         await tempDir.delete(recursive: true);
       }
     }
+  });
+
+  testWidgets('detail page displays remote imageUrl when present',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: RecipeDetailPage(
+          title: 'Remote image recipe',
+          description: 'Desc',
+          imageUrl: 'https://example.com/remote.jpg',
+          imageData: 'base64-data',
+          ingredients: [],
+          instructions: ['Step'],
+          prepTime: '-',
+          cookTime: '-',
+          servings: 2,
+        ),
+      ),
+    );
+
+    final image = tester.widget<Image>(find.byType(Image));
+    expect(image.image, isA<NetworkImage>());
+    expect((image.image as NetworkImage).url, 'https://example.com/remote.jpg');
   });
 }

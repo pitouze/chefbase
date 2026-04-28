@@ -32,6 +32,18 @@ test('formats structured ingredients and cleans instruction steps deterministica
   ]);
 });
 
+test('normalizes imageUrl as HTTPS from imageUrl or image fields', () => {
+  assert.equal(
+    normalizeRecipe({ imageUrl: 'http://example.com/photos/cake.jpg' }).imageUrl,
+    'https://example.com/photos/cake.jpg',
+  );
+  assert.equal(
+    normalizeRecipe({ image: { url: 'https://example.com/photos/tarte.jpg' } }).imageUrl,
+    'https://example.com/photos/tarte.jpg',
+  );
+  assert.equal(normalizeRecipe({ imageUrl: '/relative/cake.jpg' }).imageUrl, undefined);
+});
+
 function recipeJsonLdWithImage(image) {
   return {
     '@context': 'https://schema.org',

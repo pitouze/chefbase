@@ -35,6 +35,11 @@ class BackendRecipeImporter {
 
     final responseJson = await _postImportRecipe(recipeUri.toString());
     final imported = _mapRecipeJson(responseJson);
+    debugPrint(
+      'BackendRecipeImporter imported imageUrl '
+      'present=${imported.imageUrl?.trim().isNotEmpty ?? false} '
+      'source=${_diagnosticUrlSource(imported.imageUrl)}',
+    );
     if (!imported.hasAnyValue) {
       throw const FormatException('Backend recipe response is empty.');
     }
@@ -104,10 +109,42 @@ class BackendRecipeImporter {
       prepTime: _stringOrNull(data['prepTime'] ?? data['prep_time']),
       cookTime: _stringOrNull(data['cookTime'] ?? data['cook_time']),
       servings: _servingsOrNull(data['servings'] ?? data['yield']),
-      imageUrl: _stringOrNull(data['imageUrl'] ?? data['image_url']),
+      imageUrl: _imageUrlOrNull(
+          data['imageUrl'] ?? data['image_url'] ?? data['image']),
       notes: _stringOrNull(data['notes']),
       categories: _stringList(data['categories']),
     );
+  }
+
+  String _diagnosticUrlSource(String? value) {
+    final uri = Uri.tryParse(value?.trim() ?? '');
+    if (uri == null || uri.host.isEmpty) {
+      return 'none';
+    }
+
+    return '${uri.scheme}://${uri.host}';
+  }
+
+  String? _imageUrlOrNull(dynamic value) {
+    if (value is List) {
+      for (final entry in value) {
+        final imageUrl = _imageUrlOrNull(entry);
+        if (imageUrl != null) return imageUrl;
+      }
+      return null;
+    }
+
+    if (value is Map) {
+      return _imageUrlOrNull(
+        value['url'] ??
+            value['contentUrl'] ??
+            value['thumbnailUrl'] ??
+            value['thumbnail'] ??
+            value['image'],
+      );
+    }
+
+    return _stringOrNull(value);
   }
 
   List<Map<String, dynamic>> _ingredientMaps(dynamic value) {

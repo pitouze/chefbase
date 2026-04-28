@@ -64,6 +64,32 @@ void main() {
 
     expect(result.servings, isNull);
   });
+
+  test('maps backend imageUrl into imported recipe data', () async {
+    final result = await _withBackendResponse(
+      {
+        'title': 'Cake',
+        'ingredients': ['farine'],
+        'instructions': ['Cuire'],
+        'imageUrl': 'https://example.com/cake.jpg',
+      },
+    );
+
+    expect(result.imageUrl, 'https://example.com/cake.jpg');
+  });
+
+  test('maps legacy backend image field into imported recipe data', () async {
+    final result = await _withBackendResponse(
+      {
+        'title': 'Cake',
+        'ingredients': ['farine'],
+        'instructions': ['Cuire'],
+        'image': {'url': 'https://example.com/legacy-cake.jpg'},
+      },
+    );
+
+    expect(result.imageUrl, 'https://example.com/legacy-cake.jpg');
+  });
 }
 
 Future<ImportedRecipeData> _withBackendResponse(

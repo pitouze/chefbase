@@ -20,7 +20,7 @@ export function normalizeRecipe(recipe) {
     prepTime: normalizeDuration(recipe?.prepTime),
     cookTime: normalizeDuration(recipe?.cookTime),
     servings: normalizeServings(recipe?.servings),
-    imageUrl: cleanImageUrl(recipe?.imageUrl),
+    imageUrl: cleanImageUrl(recipe?.imageUrl ?? recipe?.image),
     notes: cleanContentString(recipe?.notes),
     categories: normalizeStringList(recipe?.categories),
   };
@@ -294,12 +294,46 @@ function cleanContentString(value) {
 }
 
 function cleanImageUrl(value) {
-  const url = cleanString(value);
+  const url = cleanString(extractImageUrlValue(value));
   if (!url || IMAGE_NOISE_PATTERN.test(normalizeComparableText(url))) {
     return undefined;
   }
 
-  return url;
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return undefined;
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return undefined;
+  }
+
+  parsed.protocol = 'https:';
+  return parsed.toString();
+}
+
+function extractImageUrlValue(value) {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(extractImageUrlValue).find(Boolean);
+  }
+
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+
+  return extractImageUrlValue(
+    value.url ??
+    value.contentUrl ??
+    value.thumbnailUrl ??
+    value.thumbnail ??
+    value.image,
+  );
 }
 
 function cleanString(value) {
