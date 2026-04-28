@@ -95,6 +95,66 @@ test('imports Marmiton-like JSON-LD from fast HTTP without Playwright or OpenAI'
   }
 });
 
+test('imports Marmiton-like JSON-LD @graph image from fast HTTP', async (t) => {
+  const originalOpenAiKey = process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  t.after(() => {
+    if (originalOpenAiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = originalOpenAiKey;
+    }
+  });
+
+  const recipeJsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebPage',
+        name: 'Marmiton',
+      },
+      {
+        '@type': 'Recipe',
+        name: 'Gratin de courgettes',
+        image: {
+          '@type': 'ImageObject',
+          thumbnail: {
+            cdnUrl: 'https://assets.afcdn.com/recipe/20260428/145000_w1200h900c1cx2000cy1333.webp',
+          },
+        },
+        recipeIngredient: ['3 courgettes', '2 œufs', '20 cl crème'],
+        recipeInstructions: [
+          { '@type': 'HowToStep', text: 'Couper les courgettes.' },
+          { '@type': 'HowToStep', text: 'Mélanger les œufs et la crème.' },
+          { '@type': 'HowToStep', text: 'Verser dans un plat et cuire 30 min.' },
+        ],
+      },
+    ],
+  };
+
+  const result = await extractRecipeFromUrl('marmiton.org/recettes/recette_gratin-courgettes.aspx', {
+    extractHttpPageContent: async (url) => {
+      assert.equal(url, 'https://www.marmiton.org/recettes/recette_gratin-courgettes.aspx');
+      return {
+        pageUrl: url,
+        pageTitle: 'Gratin de courgettes',
+        jsonLd: [JSON.stringify(recipeJsonLd)],
+        visibleText: '',
+        imageCandidates: [],
+      };
+    },
+    extractPageContent: async () => {
+      throw new Error('Playwright should not be called.');
+    },
+  });
+
+  assert.equal(result.title, 'Gratin de courgettes');
+  assert.equal(
+    result.imageUrl,
+    'https://assets.afcdn.com/recipe/20260428/145000_w1200h900c1cx2000cy1333.webp',
+  );
+});
+
 test('JSON-LD recipe without image uses og:image and returns from fast HTTP', async (t) => {
   const originalOpenAiKey = process.env.OPENAI_API_KEY;
   process.env.OPENAI_API_KEY = 'test-key';
@@ -152,6 +212,110 @@ test('JSON-LD recipe without image uses og:image and returns from fast HTTP', as
     'Étaler la moutarde sur la pâte.',
     'Ajouter les tomates et cuire 30 min.',
   ]);
+});
+
+test('og:image:secure_url fallback returns imageUrl', async (t) => {
+  const originalOpenAiKey = process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  t.after(() => {
+    if (originalOpenAiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = originalOpenAiKey;
+    }
+  });
+
+  const result = await extractRecipeFromUrl('https://example.com/recette/clafoutis', {
+    extractHttpPageContent: async (url) => ({
+      pageUrl: url,
+      pageTitle: 'Clafoutis aux cerises',
+      jsonLd: [
+        JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'Recipe',
+          name: 'Clafoutis aux cerises',
+          recipeIngredient: ['500 g cerises', '3 œufs', '100 g farine'],
+          recipeInstructions: [
+            'Mélanger les œufs et la farine.',
+            'Ajouter les cerises.',
+            'Cuire 35 min.',
+          ],
+        }),
+      ],
+      visibleText: '',
+      imageCandidates: [
+        {
+          src: 'https://example.com/images/clafoutis-1200x800.jpg',
+          source: 'og-image',
+        },
+      ],
+    }),
+    extractPageContent: async () => {
+      throw new Error('Playwright should not be called.');
+    },
+  });
+
+  assert.equal(result.imageUrl, 'https://example.com/images/clafoutis-1200x800.jpg');
+});
+
+test('Playwright timeout does not fail if previous extraction has usable recipe', async (t) => {
+  const originalOpenAiKey = process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  t.after(() => {
+    if (originalOpenAiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = originalOpenAiKey;
+    }
+  });
+
+  const result = await extractRecipeFromUrl('https://example.com/recette/omelette', {
+    extractHttpPageContent: async (url) => ({
+      pageUrl: url,
+      pageTitle: 'Omelette aux herbes',
+      jsonLd: [],
+      visibleText: [
+        'Omelette aux herbes',
+        'Ingrédients',
+        '3 œufs',
+        '1 pincée sel',
+        '1 bouquet ciboulette',
+        'Instructions',
+        'Battre les œufs avec le sel.',
+        'Ajouter la ciboulette.',
+        'Cuire à la poêle 5 min.',
+      ].join('\n'),
+      imageCandidates: [
+        {
+          src: 'https://example.com/images/omelette-1200x800.jpg',
+          source: 'html-img',
+          width: 1200,
+          height: 800,
+        },
+      ],
+    }),
+    extractPageContent: async () => {
+      throw new Error('Playwright extraction timed out.');
+    },
+  });
+
+  assert.equal(result.title, 'Omelette aux herbes');
+  assert.equal(result.imageUrl, 'https://example.com/images/omelette-1200x800.jpg');
+  assert.deepEqual(result.instructions, [
+    'Battre les œufs avec le sel.',
+    'Ajouter la ciboulette.',
+    'Cuire à la poêle 5 min.',
+  ]);
+});
+
+test('incomplete URL returns clear French error', async () => {
+  await assert.rejects(
+    () => extractRecipeFromUrl('/recettes/recette_cake.aspx'),
+    {
+      statusCode: 400,
+      message: 'URL incomplète : colle le lien complet de la recette.',
+    },
+  );
 });
 
 test('valid JSON-LD does not call OpenAI', async (t) => {

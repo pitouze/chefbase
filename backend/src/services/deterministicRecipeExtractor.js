@@ -358,7 +358,19 @@ function imageCandidateFromJsonLd(value, baseUrl) {
 
   const width = Number(value.width ?? 0);
   const height = Number(value.height ?? 0);
-  const url = cleanImageUrl(resolveUrl(value.url ?? value.contentUrl, baseUrl), {
+  const rawUrl = pickJsonLdImageUrl(value);
+  if (!rawUrl) {
+    const nestedCandidate = flattenImageCandidates(
+      value.image ?? value.thumbnail ?? value.thumbnailUrl ?? value.primaryImageOfPage,
+    )
+      .map((entry) => imageCandidateFromJsonLd(entry, baseUrl))
+      .filter(Boolean)
+      .sort((left, right) => right.score - left.score)[0];
+
+    return nestedCandidate ?? null;
+  }
+
+  const url = cleanImageUrl(resolveUrl(rawUrl, baseUrl), {
     alt: value.caption ?? value.name ?? value.alt,
     width,
     height,
@@ -377,6 +389,20 @@ function imageCandidateFromJsonLd(value, baseUrl) {
       height,
     }),
   };
+}
+
+function pickJsonLdImageUrl(value) {
+  return getString(
+    value.url ??
+    value.contentUrl ??
+    value.src ??
+    value.secure_url ??
+    value.secureUrl ??
+    value.cdnUrl ??
+    value.cdnURL ??
+    value.originalUrl ??
+    value.originalURL,
+  );
 }
 
 function flattenImageCandidates(value) {
@@ -870,7 +896,9 @@ const IMAGE_EXTENSION_REJECT_PATTERN = /\.(?:svg|ico)(?:[?#]|$)/i;
 const IMAGE_RECIPE_HINT_PATTERN = /\b(?:recipe|recette|recettes|dish|plat|food|cuisine)\b/;
 const IMAGE_FOOD_HINT_PATTERN = /\b(?:gateau|gâteau|cake|chocolat|pomme|pommes|tarte|soupe|salade|poulet|boeuf|poisson|dessert|moelleux|olive|olives)\b/;
 const IMAGE_SOURCE_PRIORITY = {
+  'og-image': 3_000_000,
   'og:image': 3_000_000,
+  'twitter-image': 2_000_000,
   'twitter:image': 2_000_000,
   'link:image_src': 1_000_000,
   'html-img': 0,

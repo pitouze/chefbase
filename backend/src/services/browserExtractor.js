@@ -79,13 +79,13 @@ export async function extractPageContent(url) {
           key: (meta.getAttribute('property') || meta.getAttribute('name') || '').toLowerCase(),
           content: meta.getAttribute('content') || '',
         }))
-        .filter((meta) => ['og:image', 'og:image:url', 'twitter:image', 'twitter:image:src'].includes(meta.key))
+        .filter((meta) => ['og:image', 'og:image:url', 'og:image:secure_url', 'twitter:image', 'twitter:image:src'].includes(meta.key))
         .map((meta) => ({
           src: resolveImageUrl(meta.content),
           alt: '',
           width: 0,
           height: 0,
-          source: meta.key.startsWith('og:') ? 'og:image' : 'twitter:image',
+          source: meta.key.startsWith('og:') ? 'og-image' : 'twitter-image',
         }))
         .filter((image) => image.src);
 

@@ -109,7 +109,7 @@ function extractMetaImageCandidates(html, baseUrl) {
     .map((match) => parseAttributes(match[0]))
     .map((attributes) => {
       const key = (attributes.property ?? attributes.name ?? '').toLowerCase();
-      if (!['og:image', 'og:image:url', 'twitter:image', 'twitter:image:src'].includes(key)) {
+      if (!['og:image', 'og:image:url', 'og:image:secure_url', 'twitter:image', 'twitter:image:src'].includes(key)) {
         return null;
       }
 
@@ -118,7 +118,7 @@ function extractMetaImageCandidates(html, baseUrl) {
         alt: attributes.alt ?? '',
         width: 0,
         height: 0,
-        source: key.startsWith('og:') ? 'og:image' : 'twitter:image',
+        source: key.startsWith('og:') ? 'og-image' : 'twitter-image',
       };
     })
     .filter((image) => image?.src);

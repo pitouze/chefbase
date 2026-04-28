@@ -8,10 +8,16 @@ import { extractRecipeWithOpenAi } from './openAiRecipeExtractor.js';
 import { normalizeRecipe } from '../utils/normalizeRecipe.js';
 
 const PLAYWRIGHT_TIMEOUT_MS = 12_000;
+const INCOMPLETE_URL_ERROR = 'URL incomplète : colle le lien complet de la recette.';
 
-export async function extractRecipeFromUrl(rawUrl) {
+export async function extractRecipeFromUrl(rawUrl, dependencies = {}) {
+  const {
+    extractHttpPageContent: httpExtractor = extractHttpPageContent,
+    extractPageContent: browserExtractor = extractPageContent,
+    extractRecipeWithOpenAi: openAiExtractor = extractRecipeWithOpenAi,
+  } = dependencies;
   const url = validateUrl(rawUrl);
-  const httpPageContent = await tryExtractHttpPageContent(url);
+  const httpPageContent = await tryExtractHttpPageContent(url, httpExtractor);
   const fastJsonLdStartedAt = Date.now();
   const httpRecipe = tryExtractDeterministicRecipe({
     url: httpPageContent?.pageUrl || url,
@@ -20,15 +26,19 @@ export async function extractRecipeFromUrl(rawUrl) {
 
   if (hasUsableRecipeJsonLd(httpPageContent, httpRecipe)) {
     logFastJsonLdHit(httpPageContent, httpRecipe, fastJsonLdStartedAt);
-    return normalizeRecipe(httpRecipe);
+    return finalizeRecipe(httpRecipe, httpPageContent);
   }
   logImportPath('fast-jsonld', fastJsonLdStartedAt, 'miss');
+
+  const bestPreviousRecipe = isUsableRecipe(httpRecipe) && !isPollutedRecipe(httpRecipe)
+    ? httpRecipe
+    : null;
 
   let aiRecipe = null;
   if (process.env.OPENAI_API_KEY && httpPageContent) {
     const startedAt = Date.now();
     try {
-      aiRecipe = await extractRecipeWithOpenAi({
+      aiRecipe = await openAiExtractor({
         url: httpPageContent.pageUrl || url,
         pageContent: httpPageContent,
       });
@@ -41,19 +51,24 @@ export async function extractRecipeFromUrl(rawUrl) {
   }
 
   if (aiRecipe) {
-    return normalizeRecipe(aiRecipe);
+    return finalizeRecipe(aiRecipe, httpPageContent);
   }
 
   const playwrightStartedAt = Date.now();
   let pageContent;
   try {
     pageContent = await withTimeout(
-      extractPageContent(url),
+      browserExtractor(url),
       PLAYWRIGHT_TIMEOUT_MS,
       'Playwright extraction timed out.',
     );
   } catch (error) {
     logImportPath('playwright', playwrightStartedAt, 'failed');
+    if (bestPreviousRecipe) {
+      console.warn('Playwright extraction failed, returning best previous recipe.', error);
+      return finalizeRecipe(bestPreviousRecipe, httpPageContent);
+    }
+
     throw error;
   }
   const finalUrl = pageContent?.pageUrl || url;
@@ -65,14 +80,14 @@ export async function extractRecipeFromUrl(rawUrl) {
 
   if (!requiresAiCleanup && isUsableRecipe(fallbackRecipe)) {
     logImportPath('playwright', playwrightStartedAt, 'hit');
-    return normalizeRecipe(fallbackRecipe);
+    return finalizeRecipe(fallbackRecipe, pageContent);
   }
   logImportPath('playwright', playwrightStartedAt, 'miss');
 
   if (process.env.OPENAI_API_KEY && (!isUsableRecipe(fallbackRecipe) || requiresAiCleanup)) {
     const startedAt = Date.now();
     try {
-      aiRecipe = await extractRecipeWithOpenAi({
+      aiRecipe = await openAiExtractor({
         url: finalUrl,
         pageContent,
       });
@@ -85,7 +100,7 @@ export async function extractRecipeFromUrl(rawUrl) {
   }
 
   if (aiRecipe) {
-    return normalizeRecipe(aiRecipe);
+    return finalizeRecipe(aiRecipe, pageContent);
   }
 
   if (isPollutedRecipe(fallbackRecipe)) {
@@ -96,13 +111,13 @@ export async function extractRecipeFromUrl(rawUrl) {
     ...fallbackRecipe,
   };
 
-  return normalizeRecipe(mergedRecipe);
+  return finalizeRecipe(mergedRecipe, pageContent);
 }
 
-async function tryExtractHttpPageContent(url) {
+async function tryExtractHttpPageContent(url, httpExtractor) {
   const startedAt = Date.now();
   try {
-    const pageContent = await extractHttpPageContent(url);
+    const pageContent = await httpExtractor(url);
     logImportPath('fast-http', startedAt, 'hit');
     return pageContent;
   } catch (error) {
@@ -141,6 +156,44 @@ function logImportPath(path, startedAt, status) {
   console.info(`[recipe-import] path=${path} status=${status} durationMs=${Date.now() - startedAt}`);
 }
 
+function finalizeRecipe(recipe, pageContent) {
+  const normalized = normalizeRecipe(recipe);
+  console.info(`[recipe-import] finalImageUrlSource=${getFinalImageUrlSource(normalized, pageContent)}`);
+  return normalized;
+}
+
+function getFinalImageUrlSource(recipe, pageContent) {
+  const imageUrl = recipe?.imageUrl;
+  if (!imageUrl) {
+    return 'none';
+  }
+
+  if (hasRecipeJsonLdImageUrl(pageContent?.jsonLd, imageUrl, pageContent?.pageUrl)) {
+    return 'schema-image';
+  }
+
+  const matchingCandidate = (pageContent?.imageCandidates ?? []).find((candidate) =>
+    urlsMatch(candidate?.src, imageUrl),
+  );
+  if (!matchingCandidate) {
+    return 'none';
+  }
+
+  if (matchingCandidate.source === 'og-image' || matchingCandidate.source === 'og:image') {
+    return 'og-image';
+  }
+
+  if (matchingCandidate.source === 'twitter-image' || matchingCandidate.source === 'twitter:image') {
+    return 'twitter-image';
+  }
+
+  if (matchingCandidate.source === 'html-img') {
+    return 'html-img';
+  }
+
+  return 'none';
+}
+
 async function withTimeout(promise, timeoutMs, message) {
   let timeoutId;
   try {
@@ -159,6 +212,16 @@ function hasRecipeJsonLdImage(blocks) {
   return (blocks ?? []).some((rawBlock) => {
     try {
       return findRecipeNodeWithImage(JSON.parse(rawBlock));
+    } catch {
+      return false;
+    }
+  });
+}
+
+function hasRecipeJsonLdImageUrl(blocks, imageUrl, baseUrl) {
+  return (blocks ?? []).some((rawBlock) => {
+    try {
+      return recipeNodeHasImageUrl(JSON.parse(rawBlock), imageUrl, baseUrl);
     } catch {
       return false;
     }
@@ -185,6 +248,84 @@ function findRecipeNodeWithImage(value) {
   return ['mainEntity', 'itemListElement'].some((key) => findRecipeNodeWithImage(value[key]));
 }
 
+function recipeNodeHasImageUrl(value, imageUrl, baseUrl = '') {
+  if (Array.isArray(value)) {
+    return value.some((entry) => recipeNodeHasImageUrl(entry, imageUrl, baseUrl));
+  }
+
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  if (isRecipeNode(value) && imageValueHasUrl(value.image, imageUrl, baseUrl)) {
+    return true;
+  }
+
+  if (value['@graph'] && recipeNodeHasImageUrl(value['@graph'], imageUrl, baseUrl)) {
+    return true;
+  }
+
+  return ['mainEntity', 'itemListElement'].some((key) =>
+    recipeNodeHasImageUrl(value[key], imageUrl, baseUrl),
+  );
+}
+
+function imageValueHasUrl(value, imageUrl, baseUrl) {
+  if (Array.isArray(value)) {
+    return value.some((entry) => imageValueHasUrl(entry, imageUrl, baseUrl));
+  }
+
+  if (typeof value === 'string') {
+    return urlsMatch(resolvePossibleUrl(value, baseUrl), imageUrl);
+  }
+
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const directValues = [
+    value.url,
+    value.contentUrl,
+    value.src,
+    value.secure_url,
+    value.secureUrl,
+    value.cdnUrl,
+    value.cdnURL,
+    value.originalUrl,
+    value.originalURL,
+  ];
+
+  return directValues.some((entry) => urlsMatch(resolvePossibleUrl(entry, baseUrl), imageUrl)) ||
+    imageValueHasUrl(value.image, imageUrl, baseUrl) ||
+    imageValueHasUrl(value.thumbnail, imageUrl, baseUrl) ||
+    imageValueHasUrl(value.thumbnailUrl, imageUrl, baseUrl) ||
+    imageValueHasUrl(value.primaryImageOfPage, imageUrl, baseUrl);
+}
+
+function resolvePossibleUrl(value, baseUrl) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return '';
+  }
+
+  try {
+    return new URL(value, baseUrl || undefined).toString();
+  } catch {
+    return value.trim();
+  }
+}
+
+function urlsMatch(left, right) {
+  if (!left || !right) {
+    return false;
+  }
+
+  return stripTrailingSlash(left) === stripTrailingSlash(right);
+}
+
+function stripTrailingSlash(value) {
+  return String(value).replace(/\/$/, '');
+}
+
 function isRecipeNode(value) {
   const type = value?.['@type'];
   const types = Array.isArray(type) ? type : [type];
@@ -200,7 +341,21 @@ function hasImageValue(value) {
     return Boolean(value.trim());
   }
 
-  return Boolean(value?.url || value?.contentUrl);
+  return Boolean(
+    value?.url ||
+    value?.contentUrl ||
+    value?.src ||
+    value?.secure_url ||
+    value?.secureUrl ||
+    value?.cdnUrl ||
+    value?.cdnURL ||
+    value?.originalUrl ||
+    value?.originalURL ||
+    hasImageValue(value?.image) ||
+    hasImageValue(value?.thumbnail) ||
+    hasImageValue(value?.thumbnailUrl) ||
+    hasImageValue(value?.primaryImageOfPage)
+  );
 }
 
 function validateUrl(rawUrl) {
@@ -208,11 +363,12 @@ function validateUrl(rawUrl) {
     throw badRequest('The request body must include a non-empty "url" string.');
   }
 
+  const normalizedRawUrl = normalizeRawUrl(rawUrl.trim());
   let parsedUrl;
   try {
-    parsedUrl = new URL(rawUrl.trim());
+    parsedUrl = new URL(normalizedRawUrl);
   } catch {
-    throw badRequest('The provided URL is invalid.');
+    throw badRequest(INCOMPLETE_URL_ERROR);
   }
 
   if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
@@ -220,6 +376,22 @@ function validateUrl(rawUrl) {
   }
 
   return parsedUrl.toString();
+}
+
+function normalizeRawUrl(rawUrl) {
+  if (/^www\./i.test(rawUrl)) {
+    return `https://${rawUrl}`;
+  }
+
+  if (/^marmiton\.org(?:[/?#]|$)/i.test(rawUrl)) {
+    return `https://www.${rawUrl}`;
+  }
+
+  if (!/^[a-z][a-z\d+.-]*:\/\//i.test(rawUrl)) {
+    throw badRequest(INCOMPLETE_URL_ERROR);
+  }
+
+  return rawUrl;
 }
 
 function badRequest(message) {
