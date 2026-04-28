@@ -7,6 +7,8 @@ import {
 import { extractRecipeWithOpenAi } from './openAiRecipeExtractor.js';
 import { normalizeRecipe } from '../utils/normalizeRecipe.js';
 
+const PLAYWRIGHT_TIMEOUT_MS = 12_000;
+
 export async function extractRecipeFromUrl(rawUrl) {
   const url = validateUrl(rawUrl);
   const httpPageContent = await tryExtractHttpPageContent(url);
@@ -17,7 +19,7 @@ export async function extractRecipeFromUrl(rawUrl) {
   });
 
   if (hasUsableRecipeJsonLd(httpPageContent, httpRecipe)) {
-    logImportPath('fast-jsonld', fastJsonLdStartedAt, 'hit');
+    logFastJsonLdHit(httpPageContent, httpRecipe, fastJsonLdStartedAt);
     return normalizeRecipe(httpRecipe);
   }
   logImportPath('fast-jsonld', fastJsonLdStartedAt, 'miss');
@@ -45,7 +47,11 @@ export async function extractRecipeFromUrl(rawUrl) {
   const playwrightStartedAt = Date.now();
   let pageContent;
   try {
-    pageContent = await extractPageContent(url);
+    pageContent = await withTimeout(
+      extractPageContent(url),
+      PLAYWRIGHT_TIMEOUT_MS,
+      'Playwright extraction timed out.',
+    );
   } catch (error) {
     logImportPath('playwright', playwrightStartedAt, 'failed');
     throw error;
@@ -119,11 +125,82 @@ function tryExtractDeterministicRecipe({ url, pageContent }) {
 }
 
 function hasUsableRecipeJsonLd(pageContent, recipe) {
-  return hasRecipeJsonLd(pageContent?.jsonLd) && isUsableRecipe(recipe) && Boolean(recipe?.imageUrl) && !isPollutedRecipe(recipe);
+  return hasRecipeJsonLd(pageContent?.jsonLd) && isUsableRecipe(recipe) && !isPollutedRecipe(recipe);
+}
+
+function logFastJsonLdHit(pageContent, recipe, startedAt) {
+  if (recipe?.imageUrl && !hasRecipeJsonLdImage(pageContent?.jsonLd)) {
+    logImportPath('fast-jsonld-html-image', startedAt, 'hit');
+    return;
+  }
+
+  logImportPath('fast-jsonld', startedAt, 'hit');
 }
 
 function logImportPath(path, startedAt, status) {
   console.info(`[recipe-import] path=${path} status=${status} durationMs=${Date.now() - startedAt}`);
+}
+
+async function withTimeout(promise, timeoutMs, message) {
+  let timeoutId;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function hasRecipeJsonLdImage(blocks) {
+  return (blocks ?? []).some((rawBlock) => {
+    try {
+      return findRecipeNodeWithImage(JSON.parse(rawBlock));
+    } catch {
+      return false;
+    }
+  });
+}
+
+function findRecipeNodeWithImage(value) {
+  if (Array.isArray(value)) {
+    return value.some(findRecipeNodeWithImage);
+  }
+
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  if (isRecipeNode(value) && hasImageValue(value.image)) {
+    return true;
+  }
+
+  if (value['@graph'] && findRecipeNodeWithImage(value['@graph'])) {
+    return true;
+  }
+
+  return ['mainEntity', 'itemListElement'].some((key) => findRecipeNodeWithImage(value[key]));
+}
+
+function isRecipeNode(value) {
+  const type = value?.['@type'];
+  const types = Array.isArray(type) ? type : [type];
+  return types.some((entry) => String(entry ?? '').split('/').pop().split(':').pop().toLowerCase() === 'recipe');
+}
+
+function hasImageValue(value) {
+  if (Array.isArray(value)) {
+    return value.some(hasImageValue);
+  }
+
+  if (typeof value === 'string') {
+    return Boolean(value.trim());
+  }
+
+  return Boolean(value?.url || value?.contentUrl);
 }
 
 function validateUrl(rawUrl) {

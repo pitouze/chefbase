@@ -11,7 +11,7 @@ export async function extractHttpPageContent(url) {
         '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 ChefBaseImportBot/1.0',
     },
     redirect: 'follow',
-    signal: AbortSignal.timeout(5_000),
+    signal: AbortSignal.timeout(4_000),
   });
 
   if (!response.ok) {
@@ -82,7 +82,11 @@ function htmlToVisibleText(html) {
 }
 
 function extractImageCandidates(html, baseUrl) {
-  return [...html.matchAll(/<img\b[^>]*>/gi)]
+  const metaCandidates = [
+    ...extractMetaImageCandidates(html, baseUrl),
+    ...extractLinkImageCandidates(html, baseUrl),
+  ];
+  const imgCandidates = [...html.matchAll(/<img\b[^>]*>/gi)]
     .map((match) => {
       const attributes = parseAttributes(match[0]);
       return {
@@ -90,11 +94,54 @@ function extractImageCandidates(html, baseUrl) {
         alt: attributes.alt ?? '',
         width: Number.parseInt(attributes.width ?? '0', 10) || 0,
         height: Number.parseInt(attributes.height ?? '0', 10) || 0,
+        source: 'html-img',
       };
     })
     .filter((image) => image.src)
-    .sort((left, right) => (right.width * right.height) - (left.width * left.height))
+    .sort((left, right) => (right.width * right.height) - (left.width * left.height));
+
+  return [...metaCandidates, ...imgCandidates]
     .slice(0, 12);
+}
+
+function extractMetaImageCandidates(html, baseUrl) {
+  return [...html.matchAll(/<meta\b[^>]*>/gi)]
+    .map((match) => parseAttributes(match[0]))
+    .map((attributes) => {
+      const key = (attributes.property ?? attributes.name ?? '').toLowerCase();
+      if (!['og:image', 'og:image:url', 'twitter:image', 'twitter:image:src'].includes(key)) {
+        return null;
+      }
+
+      return {
+        src: resolveUrl(attributes.content, baseUrl),
+        alt: attributes.alt ?? '',
+        width: 0,
+        height: 0,
+        source: key.startsWith('og:') ? 'og:image' : 'twitter:image',
+      };
+    })
+    .filter((image) => image?.src);
+}
+
+function extractLinkImageCandidates(html, baseUrl) {
+  return [...html.matchAll(/<link\b[^>]*>/gi)]
+    .map((match) => parseAttributes(match[0]))
+    .map((attributes) => {
+      const rels = String(attributes.rel ?? '').toLowerCase().split(/\s+/);
+      if (!rels.includes('image_src')) {
+        return null;
+      }
+
+      return {
+        src: resolveUrl(attributes.href, baseUrl),
+        alt: '',
+        width: 0,
+        height: 0,
+        source: 'link:image_src',
+      };
+    })
+    .filter((image) => image?.src);
 }
 
 function parseAttributes(tag) {

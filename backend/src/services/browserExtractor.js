@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 
-const NAVIGATION_TIMEOUT_MS = 30_000;
-const PAGE_WAIT_AFTER_LOAD_MS = 1_500;
+const NAVIGATION_TIMEOUT_MS = 12_000;
+const PAGE_WAIT_AFTER_LOAD_MS = 500;
 const MAX_VISIBLE_TEXT_LENGTH = 24_000;
 
 export async function extractPageContent(url) {
@@ -25,11 +25,23 @@ export async function extractPageContent(url) {
     });
 
     await page.waitForLoadState('networkidle', {
-      timeout: 10_000,
+      timeout: 2_000,
     }).catch(() => {});
     await page.waitForTimeout(PAGE_WAIT_AFTER_LOAD_MS);
 
     const extracted = await page.evaluate(({ maxVisibleTextLength }) => {
+      const resolveImageUrl = (value) => {
+        if (!value) {
+          return '';
+        }
+
+        try {
+          return new URL(value, window.location.href).toString();
+        } catch {
+          return '';
+        }
+      };
+
       const jsonLd = Array.from(
         document.querySelectorAll('script[type="application/ld+json"]'),
       )
@@ -62,16 +74,49 @@ export async function extractPageContent(url) {
         }
       }
 
-      const imageCandidates = Array.from(document.images)
+      const metaImageCandidates = Array.from(document.querySelectorAll('meta[property], meta[name]'))
+        .map((meta) => ({
+          key: (meta.getAttribute('property') || meta.getAttribute('name') || '').toLowerCase(),
+          content: meta.getAttribute('content') || '',
+        }))
+        .filter((meta) => ['og:image', 'og:image:url', 'twitter:image', 'twitter:image:src'].includes(meta.key))
+        .map((meta) => ({
+          src: resolveImageUrl(meta.content),
+          alt: '',
+          width: 0,
+          height: 0,
+          source: meta.key.startsWith('og:') ? 'og:image' : 'twitter:image',
+        }))
+        .filter((image) => image.src);
+
+      const linkImageCandidates = Array.from(document.querySelectorAll('link[rel]'))
+        .filter((link) => (link.getAttribute('rel') || '').toLowerCase().split(/\s+/).includes('image_src'))
+        .map((link) => ({
+          src: resolveImageUrl(link.getAttribute('href') || ''),
+          alt: '',
+          width: 0,
+          height: 0,
+          source: 'link:image_src',
+        }))
+        .filter((image) => image.src);
+
+      const htmlImageCandidates = Array.from(document.images)
         .map((image) => ({
           src: image.currentSrc || image.src || '',
           alt: image.alt?.trim() || '',
           width: Number(image.naturalWidth || image.width || 0),
           height: Number(image.naturalHeight || image.height || 0),
+          source: 'html-img',
         }))
         .filter((image) => image.src)
         .sort((left, right) => (right.width * right.height) - (left.width * left.height))
         .slice(0, 12);
+
+      const imageCandidates = [
+        ...metaImageCandidates,
+        ...linkImageCandidates,
+        ...htmlImageCandidates,
+      ].slice(0, 12);
 
       const textNodes = [];
       const walker = document.createTreeWalker(document.body ?? document.documentElement, NodeFilter.SHOW_TEXT);

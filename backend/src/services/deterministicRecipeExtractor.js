@@ -5,7 +5,7 @@ export function extractRecipeWithDeterministicParser({ url, pageContent }) {
   const jsonLdRecipe = findRecipeInJsonLd(pageContent?.jsonLd);
 
   if (jsonLdRecipe) {
-    const jsonLdExtracted = extractFromJsonLdRecipe(jsonLdRecipe, url);
+    const jsonLdExtracted = extractFromJsonLdRecipe(jsonLdRecipe, url, pageContent);
     return normalizeRecipe(cleanExtractedRecipe(jsonLdExtracted, { isMarmiton }));
   }
 
@@ -23,7 +23,7 @@ export function hasRecipeJsonLd(blocks) {
   return Boolean(findRecipeInJsonLd(blocks));
 }
 
-function extractFromJsonLdRecipe(recipe, url) {
+function extractFromJsonLdRecipe(recipe, url, pageContent) {
   return {
     title: getString(recipe?.name),
     description: getString(recipe?.description),
@@ -32,7 +32,7 @@ function extractFromJsonLdRecipe(recipe, url) {
     prepTime: formatDuration(recipe?.prepTime ?? recipe?.totalTime),
     cookTime: formatDuration(recipe?.cookTime),
     servings: parseServings(recipe?.recipeYield),
-    imageUrl: pickImageFromJsonLd(recipe, url),
+    imageUrl: pickImageFromJsonLd(recipe, url) ?? pickFallbackImage(pageContent?.imageCandidates),
     categories: extractCategories(recipe?.recipeCategory),
   };
 }
@@ -396,12 +396,22 @@ function pickFallbackImage(candidates) {
     return null;
   }
 
-  const picked = candidates.find((candidate) => {
-    const src = cleanImageUrl(candidate?.src, candidate);
-    return Boolean(src);
-  });
+  const picked = candidates
+    .map((candidate, index) => ({
+      src: cleanImageUrl(candidate?.src, candidate),
+      score: scoreImageCandidate({
+        url: candidate?.src,
+        alt: candidate?.alt,
+        width: candidate?.width,
+        height: candidate?.height,
+        source: candidate?.source,
+      }),
+      index,
+    }))
+    .filter((candidate) => candidate.src)
+    .sort((left, right) => right.score - left.score || left.index - right.index)[0];
 
-  return picked ? cleanImageUrl(picked.src, picked) : null;
+  return picked?.src ?? null;
 }
 
 function cleanImageUrl(value, candidate = {}) {
@@ -433,7 +443,7 @@ function cleanImageUrl(value, candidate = {}) {
   return url;
 }
 
-function scoreImageCandidate({ url, alt = '', width = 0, height = 0 }) {
+function scoreImageCandidate({ url, alt = '', width = 0, height = 0, source = '' }) {
   const area = width && height ? width * height : 0;
   const comparable = removeDiacritics(`${url} ${alt}`).toLowerCase();
   const sizeHint = extractImageSizeHint(comparable);
@@ -442,9 +452,10 @@ function scoreImageCandidate({ url, alt = '', width = 0, height = 0 }) {
     sizeHint ? sizeHint.width * sizeHint.height : 0,
     querySizeHint ? querySizeHint.width * querySizeHint.height : 0,
   );
+  const sourceScore = IMAGE_SOURCE_PRIORITY[source] ?? 0;
   const recipeLikeScore = IMAGE_RECIPE_HINT_PATTERN.test(comparable) ? 500_000 : 0;
   const foodLikeScore = IMAGE_FOOD_HINT_PATTERN.test(comparable) ? 250_000 : 0;
-  return Math.max(area, hintedArea) + recipeLikeScore + foodLikeScore;
+  return sourceScore + Math.max(area, hintedArea) + recipeLikeScore + foodLikeScore;
 }
 
 function extractImageSizeHint(value) {
@@ -858,6 +869,12 @@ const IMAGE_REJECT_PATTERN = /\b(logo|banner|banniere|advert|publicite|ads?|cook
 const IMAGE_EXTENSION_REJECT_PATTERN = /\.(?:svg|ico)(?:[?#]|$)/i;
 const IMAGE_RECIPE_HINT_PATTERN = /\b(?:recipe|recette|recettes|dish|plat|food|cuisine)\b/;
 const IMAGE_FOOD_HINT_PATTERN = /\b(?:gateau|gâteau|cake|chocolat|pomme|pommes|tarte|soupe|salade|poulet|boeuf|poisson|dessert|moelleux|olive|olives)\b/;
+const IMAGE_SOURCE_PRIORITY = {
+  'og:image': 3_000_000,
+  'twitter:image': 2_000_000,
+  'link:image_src': 1_000_000,
+  'html-img': 0,
+};
 const INGREDIENT_REJECT_PATTERN = /\b(casseroles?|fouets?|four|balance|acheter|top|meilleurs?|details?)\b/;
 const INGREDIENT_GARBAGE_CUT_PATTERN = /\b(?:top\s*\d*|meilleurs?|acheter|d[ée]tails?|ustensiles?|equipements?|materiels?|casseroles?|four|balance|fouets?)\b[\s\S]*$/i;
 const INGREDIENT_REJECT_WORDS = new Set([
